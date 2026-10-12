@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Gamepad body silhouette -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M38,36 C33,36 26,41 24,51 C22,61 24,71 30,73 C35,74 39,69 42,65 L48,65 C50,65 52,67 54,67 C56,67 58,65 60,65 L66,65 C69,69 73,74 78,73 C84,71 86,61 84,51 C82,41 75,36 70,36 L38,36 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M39,39 C35,39 29,43 27,51 C25,59 27,68 31,69 C34,70 37,66 40,62 L48,62 C50,62 52,64 54,64 C56,64 58,62 60,62 L68,62 C71,66 74,70 77,69 C81,68 83,59 81,51 C79,43 73,39 69,39 L39,39 Z" />
+
+    <!-- D-Pad (Left) -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M35,47 L37,47 L37,45 L39,45 L39,47 L41,47 L41,49 L39,49 L39,51 L37,51 L37,49 L35,49 Z" />
+
+    <!-- Action Buttons (Right) -->
+    <!-- X/A/B/Y Buttons -->
+    <path
+        android:fillColor="#F43F5E"
+        android:pathData="M69,45 A1.8,1.8 0 1,1 69,48.6 A1.8,1.8 0 1,1 69,45 Z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M65,49 A1.8,1.8 0 1,1 65,52.6 A1.8,1.8 0 1,1 65,49 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M73,49 A1.8,1.8 0 1,1 73,52.6 A1.8,1.8 0 1,1 73,49 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M69,53 A1.8,1.8 0 1,1 69,56.6 A1.8,1.8 0 1,1 69,53 Z" />
+
+    <!-- Center pulse radar dot -->
+    <path
+        android:fillColor="#A855F7"
+        android:pathData="M54,49 A2.5,2.5 0 1,1 54,54 A2.5,2.5 0 1,1 54,49 Z" />
+
+    <!-- Radar scan blip in top right -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M76,28 A3,3 0 1,1 76,34 A3,3 0 1,1 76,28 Z" />
+</vector>

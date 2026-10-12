@@ -1,0 +1,6 @@
+{
+  "name": "GameRadar",
+  "description": "Comprehensive game tracker for PC and consoles with live prices, digital & physical store deals by country, trailers, system requirements, wishlist, and price drop alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
