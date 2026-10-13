@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AlertHistoryEntity
@@ -11,6 +12,7 @@ import com.example.data.model.CountryInfo
 import com.example.data.model.GameDetail
 import com.example.data.model.PlatformType
 import com.example.data.model.UserReview
+import com.example.data.repository.CountryPricingManager
 import com.example.data.repository.GameRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,18 +32,29 @@ enum class SortOption(val label: String) {
 class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = GameRepository(application)
+    private val prefs = application.getSharedPreferences("gameradar_prefs", Context.MODE_PRIVATE)
 
     private val _selectedCountry = MutableStateFlow(CountryInfo.DEFAULT)
     val selectedCountry: StateFlow<CountryInfo> = _selectedCountry.asStateFlow()
 
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    private val _preferredPlatform = MutableStateFlow(
+        try {
+            val saved = prefs.getString("preferred_platform", PlatformType.ALL.name) ?: PlatformType.ALL.name
+            PlatformType.valueOf(saved)
+        } catch (e: Exception) {
+            PlatformType.ALL
+        }
+    )
+    val preferredPlatform: StateFlow<PlatformType> = _preferredPlatform.asStateFlow()
 
-    private val _selectedPlatform = MutableStateFlow(PlatformType.ALL)
+    private val _selectedPlatform = MutableStateFlow(_preferredPlatform.value)
     val selectedPlatform: StateFlow<PlatformType> = _selectedPlatform.asStateFlow()
 
     private val _selectedSort = MutableStateFlow(SortOption.TRENDING)
     val selectedSort: StateFlow<SortOption> = _selectedSort.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     private val _searchResults = MutableStateFlow<List<GameDetail>>(emptyList())
     val searchResults: StateFlow<List<GameDetail>> = _searchResults.asStateFlow()
@@ -98,6 +111,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         performSearch()
     }
 
+    fun setPreferredPlatform(platform: PlatformType, updateActiveFilter: Boolean = true) {
+        _preferredPlatform.value = platform
+        prefs.edit().putString("preferred_platform", platform.name).apply()
+        if (updateActiveFilter) {
+            setPlatform(platform)
+        }
+    }
+
+    fun getEffectivePlatform(): PlatformType {
+        return if (_selectedPlatform.value != PlatformType.ALL) {
+            _selectedPlatform.value
+        } else {
+            _preferredPlatform.value
+        }
+    }
+
     fun setSort(sort: SortOption) {
         _selectedSort.value = sort
         applySorting()
@@ -127,7 +156,30 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun applySorting() {
         val current = _searchResults.value.toMutableList()
         val sorted = when (_selectedSort.value) {
-            SortOption.TRENDING -> current.sortedByDescending { it.metacriticScore + (it.userRating * 10).toInt() }
+            SortOption.TRENDING -> {
+                val trimmed = _searchQuery.value.trim().lowercase()
+                current.sortedWith(
+                    compareByDescending<GameDetail> { game ->
+                        val titleLower = game.title.lowercase().trim()
+                        var score = game.popularityScore
+
+                        if (trimmed.isNotEmpty()) {
+                            if (titleLower == trimmed) score += 50000
+                            else if (titleLower.startsWith(trimmed)) score += 25000
+                            else if (titleLower.contains(trimmed)) score += 10000
+                        }
+
+                        val year = game.releaseDate.take(4).toIntOrNull()
+                            ?: game.releaseDate.takeLast(4).toIntOrNull() ?: 1990
+                        if (year >= 2026) score += 30000
+                        else if (year >= 2024) score += 10000
+
+                        score
+                    }.thenByDescending { it.ratingsCount }
+                     .thenByDescending { it.metacriticScore }
+                     .thenByDescending { it.userRating }
+                )
+            }
             SortOption.DISCOUNT -> current.sortedByDescending {
                 val discount = ((it.basePriceUsd - it.lowestHistoricalPriceUsd) / it.basePriceUsd) * 100
                 discount
@@ -187,12 +239,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         priority: String = "MEDIUM"
     ) {
         viewModelScope.launch {
-            if (_isInWishlist.value) {
+            val currentlyInWishlist = repository.isGameInWishlist(game.id)
+            if (currentlyInWishlist) {
                 repository.removeFromWishlist(game.id)
             } else {
-                val defaultTarget = targetPrice ?: (game.lowestHistoricalPriceUsd * _selectedCountry.value.exchangeRateToUsd)
+                val regionalDeal = game.getDisplayLowestPrice(_selectedCountry.value)
+                val defaultTarget = targetPrice ?: (regionalDeal * 0.85)
                 repository.addToWishlist(game, defaultTarget, _selectedCountry.value, notes, priority)
             }
+        }
+    }
+
+    fun removeFromWishlist(gameId: String) {
+        viewModelScope.launch {
+            repository.removeFromWishlist(gameId)
         }
     }
 
@@ -249,11 +309,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun triggerPriceDropTest(gameId: String, onPriceDropped: ((Double, Double) -> Unit)? = null) {
         viewModelScope.launch {
             val oldGame = _selectedGame.value
-            val oldPrice = (oldGame?.lowestHistoricalPriceUsd ?: 59.99) * _selectedCountry.value.exchangeRateToUsd
-            val updated = repository.triggerSimulatedPriceDrop(gameId, _selectedCountry.value)
+            val country = _selectedCountry.value
+            val oldPrice = oldGame?.getDisplayLowestPrice(country) ?: CountryPricingManager.getRegionalBasePrice(59.99, country.code)
+            val updated = repository.triggerSimulatedPriceDrop(gameId, country)
             if (updated != null) {
                 _selectedGame.value = updated
-                val newPrice = updated.lowestHistoricalPriceUsd * _selectedCountry.value.exchangeRateToUsd
+                val newPrice = updated.getDisplayLowestPrice(country)
                 onPriceDropped?.invoke(oldPrice, newPrice)
                 // Also refresh search results list so discounted price reflects across app
                 performSearch()
@@ -321,8 +382,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun buildShareGameText(game: GameDetail): String {
         val country = _selectedCountry.value
-        val localBestPrice = "${country.currencySymbol}${"%.2f".format(game.lowestHistoricalPriceUsd * country.exchangeRateToUsd)}"
-        val origPrice = "${country.currencySymbol}${"%.2f".format(game.basePriceUsd * country.exchangeRateToUsd)}"
+        val localBestPrice = "${country.currencySymbol}${"%.2f".format(game.getDisplayLowestPrice(country))}"
+        val origPrice = "${country.currencySymbol}${"%.2f".format(game.getDisplayBasePrice(country))}"
 
         return """
             🎮 Check out ${game.title} on GameRadar!

@@ -82,6 +82,13 @@ data class UserReview(
     val isVerifiedGamer: Boolean = true
 )
 
+data class RatingBreakdownItem(
+    val title: String, // exceptional, recommended, meh, skip
+    val percent: Float, // e.g. 65.5%
+    val count: Int,
+    val colorHex: String = "#00F0FF"
+)
+
 data class GameDetail(
     val id: String,
     val title: String,
@@ -110,8 +117,67 @@ data class GameDetail(
     val redditUrl: String = "",
     val averagePlaytimeHours: Int = 0,
     val tags: List<String> = emptyList(),
-    val ratingsCount: Int = 0
-)
+    val ratingsCount: Int = 0,
+    val popularityScore: Int = 0,
+    val ratingBreakdown: List<RatingBreakdownItem> = emptyList()
+) {
+    fun getDisplayBasePrice(country: CountryInfo, platform: PlatformType = PlatformType.ALL): Double {
+        val base = com.example.data.repository.CountryPricingManager.getRegionalBasePrice(basePriceUsd, country.code)
+        return if (platform == PlatformType.PS5 || platform == PlatformType.XBOX) {
+            if (country.code == "GB" && base < 69.99 && basePriceUsd >= 59.99) 69.99
+            else if (country.code == "EU" && base < 79.99 && basePriceUsd >= 59.99) 79.99
+            else base
+        } else base
+    }
+
+    fun getLoadedPrice(country: CountryInfo, platform: PlatformType = PlatformType.ALL): Double {
+        val year = releaseDate.take(4).toIntOrNull()
+            ?: releaseDate.takeLast(4).toIntOrNull() ?: 2025
+        val baseLoaded = com.example.data.repository.CountryPricingManager.getLoadedKeyPrice(
+            basePriceUsd = basePriceUsd,
+            dealPriceUsd = lowestHistoricalPriceUsd,
+            countryCode = country.code,
+            releaseYear = year
+        )
+        return when (platform) {
+            PlatformType.PC -> com.example.data.repository.CountryPricingManager.formatRegionalPrice(baseLoaded * 0.96, country.code)
+            PlatformType.PS5 -> com.example.data.repository.CountryPricingManager.formatRegionalPrice(baseLoaded * 1.04, country.code)
+            PlatformType.XBOX -> com.example.data.repository.CountryPricingManager.formatRegionalPrice(baseLoaded * 1.02, country.code)
+            PlatformType.SWITCH -> com.example.data.repository.CountryPricingManager.formatRegionalPrice(baseLoaded * 1.06, country.code)
+            PlatformType.ALL -> baseLoaded
+        }
+    }
+
+    fun getLoadedDiscountPercent(country: CountryInfo, platform: PlatformType = PlatformType.ALL): Int {
+        val base = getDisplayBasePrice(country, platform)
+        val loaded = getLoadedPrice(country, platform)
+        return if (base > 0) {
+            (((base - loaded) / base) * 100).toInt().coerceIn(15, 85)
+        } else 30
+    }
+
+    fun getDisplayLowestPrice(country: CountryInfo, platform: PlatformType = PlatformType.ALL): Double {
+        val targetOffers = if (platform == PlatformType.ALL) {
+            digitalOffers + physicalOffers
+        } else {
+            (digitalOffers + physicalOffers).filter { it.platform == platform }
+        }
+
+        if (targetOffers.isNotEmpty()) {
+            val minOffer = targetOffers.minOf { it.price }
+            val loaded = getLoadedPrice(country, platform)
+            return if (loaded > 0.0) minOf(minOffer, loaded) else minOffer
+        }
+
+        val standardDeal = com.example.data.repository.CountryPricingManager.getRegionalDealPrice(basePriceUsd, lowestHistoricalPriceUsd, country.code)
+        val loadedKeyPrice = getLoadedPrice(country, platform)
+        return when {
+            loadedKeyPrice > 0.0 && standardDeal > 0.0 -> minOf(standardDeal, loadedKeyPrice)
+            loadedKeyPrice > 0.0 -> loadedKeyPrice
+            else -> standardDeal
+        }
+    }
+}
 
 // CheapShark JSON Models
 @JsonClass(generateAdapter = true)

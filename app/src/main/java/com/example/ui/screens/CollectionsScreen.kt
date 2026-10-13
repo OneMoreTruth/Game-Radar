@@ -62,8 +62,9 @@ fun CollectionsScreen(
     }
 
     val totalCount = allCollections.size
-    val estimatedValue = totalCount * 59.99 * selectedCountry.exchangeRateToUsd
-    val estimatedSavings = totalCount * 22.50 * selectedCountry.exchangeRateToUsd
+    val standardRegionalPrice = com.example.data.repository.CountryPricingManager.getRegionalBasePrice(59.99, selectedCountry.code)
+    val estimatedValue = totalCount * standardRegionalPrice
+    val estimatedSavings = totalCount * (standardRegionalPrice * 0.35)
 
     Scaffold(
         topBar = {

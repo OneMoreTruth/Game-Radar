@@ -45,6 +45,19 @@ class GameRepository(private val context: Context) {
                     val allOffers = (digital + physical).map { it.toCachedEntity(game.id) }
                     cacheDao.insertOffers(allOffers)
                 }
+
+                // If online, immediately pull live trending games from RAWG API so all menus show live data!
+                val rawgApiKey = com.example.BuildConfig.RAWG_API_KEY
+                if (!rawgApiKey.isNullOrBlank() && !rawgApiKey.equals("YOUR_RAWG_API_KEY", ignoreCase = true)) {
+                    val trending = com.example.data.remote.RawgClient.getTrendingGames(apiKey = rawgApiKey, limit = 20)
+                    if (trending.isNotEmpty()) {
+                        cacheDao.insertGames(trending.map { it.toCachedEntity() })
+                        trending.forEach { tGame ->
+                            val (tDigital, tPhysical) = StoreOfferGenerator.generateOffers(tGame, CountryInfo.DEFAULT)
+                            cacheDao.insertOffers((tDigital + tPhysical).map { it.toCachedEntity(tGame.id) })
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 // Ignore initialization failures
             }
@@ -56,8 +69,32 @@ class GameRepository(private val context: Context) {
         selectedPlatform: PlatformType = PlatformType.ALL
     ): List<GameDetail> = withContext(Dispatchers.IO) {
         val trimmed = query.trim().lowercase()
+        val rawgApiKey = com.example.BuildConfig.RAWG_API_KEY
+        val hasRawgApiKey = !rawgApiKey.isNullOrBlank() &&
+                !rawgApiKey.equals("YOUR_RAWG_API_KEY", ignoreCase = true)
 
-        // 1. Fetch from local Room cache first (Offline support)
+        val combinedResults = mutableListOf<GameDetail>()
+
+        // 1. When searching online, query RAWG.io API directly with popularity-ranked results!
+        if (trimmed.isNotEmpty() && hasRawgApiKey) {
+            try {
+                val rawgResults = com.example.data.remote.RawgClient.searchRawgGames(
+                    query = trimmed,
+                    apiKey = rawgApiKey,
+                    limit = 30
+                )
+                for (rawgGame in rawgResults) {
+                    cacheDao.insertGame(rawgGame.toCachedEntity())
+                    if (selectedPlatform == PlatformType.ALL || rawgGame.platforms.contains(selectedPlatform)) {
+                        combinedResults.add(rawgGame)
+                    }
+                }
+            } catch (e: Exception) {
+                // fall back cleanly to local Room cache
+            }
+        }
+
+        // 2. Fetch from local Room cache (Offline support and cached games)
         val cachedGames = cacheDao.getAllCachedGames().firstOrNull() ?: emptyList()
         val localMatches = cachedGames
             .map { it.toDomainModel() }
@@ -69,45 +106,43 @@ class GameRepository(private val context: Context) {
                         game.platforms.contains(selectedPlatform)
                 matchesTitle && matchesPlatform
             }
-            .toMutableList()
 
-        // 2. If online and searching, query RAWG.io API and CheapShark API to update cache
-        if (trimmed.isNotEmpty()) {
-            val rawgApiKey = com.example.BuildConfig.RAWG_API_KEY
-            val hasRawgApiKey = !rawgApiKey.isNullOrBlank() &&
-                    !rawgApiKey.equals("YOUR_RAWG_API_KEY", ignoreCase = true)
+        for (local in localMatches) {
+            if (!combinedResults.any { it.title.equals(local.title, ignoreCase = true) }) {
+                combinedResults.add(local)
+            }
+        }
 
-            // 2a. Query RAWG.io Video Games Database for high-res posters, descriptions, and metadata
-            if (hasRawgApiKey) {
-                try {
-                    val rawgResults = com.example.data.remote.RawgClient.searchRawgGames(
-                        query = trimmed,
-                        apiKey = rawgApiKey,
-                        limit = 15
-                    )
-                    for (rawgGame in rawgResults) {
-                        cacheDao.insertGame(rawgGame.toCachedEntity())
-                        val exists = localMatches.any { it.title.equals(rawgGame.title, ignoreCase = true) }
-                        if (!exists) {
-                            if (selectedPlatform == PlatformType.ALL || rawgGame.platforms.contains(selectedPlatform)) {
-                                localMatches.add(0, rawgGame) // Prioritize rich RAWG.io results
-                            }
+        // 3. When query is empty (home/trending feed), ensure live trending games from RAWG are loaded!
+        if (trimmed.isEmpty() && hasRawgApiKey && combinedResults.size <= GameCatalog.FEATURED_GAMES.size) {
+            try {
+                val trendingResults = com.example.data.remote.RawgClient.getTrendingGames(
+                    apiKey = rawgApiKey,
+                    limit = 20
+                )
+                for (rawgGame in trendingResults) {
+                    cacheDao.insertGame(rawgGame.toCachedEntity())
+                    if (!combinedResults.any { it.title.equals(rawgGame.title, ignoreCase = true) }) {
+                        if (selectedPlatform == PlatformType.ALL || rawgGame.platforms.contains(selectedPlatform)) {
+                            combinedResults.add(rawgGame)
                         }
                     }
-                } catch (e: Exception) {
-                    // Fall back cleanly to CheapShark API and cached database
                 }
+            } catch (e: Exception) {
+                // ignore
             }
+        }
 
-            // 2b. Also query CheapShark for real-time deals and pricing
+        // 4. Also query CheapShark for real-time PC deal matches if searching
+        if (trimmed.isNotEmpty()) {
             try {
-                val remoteResults = api.searchGames(trimmed, limit = 15)
+                val remoteResults = api.searchGames(trimmed, limit = 10)
                 for (item in remoteResults) {
-                    val existing = localMatches.firstOrNull { it.title.equals(item.title, ignoreCase = true) }
+                    val existing = combinedResults.firstOrNull { it.title.equals(item.title, ignoreCase = true) }
                     if (existing == null) {
                         val cheapestPrice = item.cheapestPrice?.toDoubleOrNull() ?: 19.99
                         val generatedId = "cs-${item.gameId}"
-                        val thumb = item.thumbUrl ?: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=600&auto=format&fit=crop"
+                        val thumb = item.thumbUrl ?: "https://media.rawg.io/media/games/b29/b2931557d3e0c8ca8eed470213b33e52.jpg"
 
                         val remoteGame = GameDetail(
                             id = generatedId,
@@ -118,8 +153,8 @@ class GameRepository(private val context: Context) {
                             developer = "Featured Game Studios",
                             publisher = "Global Publisher",
                             releaseDate = "Recent Release",
-                            metacriticScore = 85,
-                            userRating = 4.5f,
+                            metacriticScore = 80,
+                            userRating = 4.2f,
                             esrbRating = "T (Teen)",
                             genres = listOf("Action", "Adventure", "Deals"),
                             description = "Real-time deal and price tracking across PC digital stores and verified physical retailers worldwide for ${item.title}.",
@@ -128,38 +163,52 @@ class GameRepository(private val context: Context) {
                             screenshots = listOf(thumb),
                             basePriceUsd = if (cheapestPrice > 0) cheapestPrice * 1.5 else 49.99,
                             lowestHistoricalPriceUsd = cheapestPrice,
-                            systemRequirements = SystemRequirements(
-                                minimum = SpecDetails(
-                                    os = "Windows 10 64-bit",
-                                    processor = "Quad-Core Intel or AMD CPU",
-                                    memory = "8 GB RAM",
-                                    graphics = "NVIDIA GTX 1050 / AMD RX 560",
-                                    storage = "45 GB available space"
-                                ),
-                                recommended = SpecDetails(
-                                    os = "Windows 11 64-bit",
-                                    processor = "Six-Core Intel i5 / AMD Ryzen 5",
-                                    memory = "16 GB RAM",
-                                    graphics = "NVIDIA RTX 3060 / AMD RX 6600",
-                                    storage = "50 GB SSD"
-                                )
-                            )
+                            systemRequirements = null,
+                            popularityScore = 500
                         )
 
-                        // Save into Room Cache for offline reuse!
                         cacheDao.insertGame(remoteGame.toCachedEntity())
-
                         if (selectedPlatform == PlatformType.ALL || remoteGame.platforms.contains(selectedPlatform)) {
-                            localMatches.add(remoteGame)
+                            combinedResults.add(remoteGame)
                         }
                     }
                 }
             } catch (e: Exception) {
-                // Offline fallback: returns localMatches from Room cleanly!
+                // ignore
             }
         }
 
-        localMatches
+        // 5. Prioritize search ranking:
+        // - Exact or starts-with title matches
+        // - Major releases and popular games (high ratingsCount / added)
+        // - New releases (e.g. 2026 releases like "Halloween" 2026) strongly prioritized over obscure low-budget titles
+        combinedResults.sortedWith(
+            compareByDescending<GameDetail> { game ->
+                val titleLower = game.title.lowercase().trim()
+                var relevance = game.popularityScore
+
+                if (trimmed.isNotEmpty()) {
+                    if (titleLower == trimmed) {
+                        relevance += 50000
+                    } else if (titleLower.startsWith(trimmed)) {
+                        relevance += 25000
+                    } else if (titleLower.contains(trimmed)) {
+                        relevance += 10000
+                    }
+                }
+
+                val year = game.releaseDate.take(4).toIntOrNull()
+                    ?: game.releaseDate.takeLast(4).toIntOrNull() ?: 1990
+                if (year >= 2026) {
+                    relevance += 30000
+                } else if (year >= 2024) {
+                    relevance += 10000
+                }
+
+                relevance
+            }.thenByDescending { it.ratingsCount }
+             .thenByDescending { it.metacriticScore }
+        )
     }
 
     suspend fun getGameDetail(
@@ -186,9 +235,56 @@ class GameRepository(private val context: Context) {
                     if (enriched != null) {
                         baseGame = enriched
                     }
+                    val rawgReviews = com.example.data.remote.RawgClient.getRawgReviews(rawgId, rawgApiKey)
+                    ensureReviewsForGame(gameId, baseGame.title, baseGame.developer, baseGame.userRating, baseGame.genres, rawgReviews)
+                    cacheDao.insertGame(baseGame.toCachedEntity())
                 } catch (e: Exception) {
-                    // ignore
+                    ensureReviewsForGame(gameId, baseGame.title, baseGame.developer, baseGame.userRating, baseGame.genres, emptyList())
                 }
+            } else {
+                ensureReviewsForGame(gameId, baseGame.title, baseGame.developer, baseGame.userRating, baseGame.genres, emptyList())
+            }
+        } else {
+            val rawgApiKey = com.example.BuildConfig.RAWG_API_KEY
+            val hasRawgApiKey = !rawgApiKey.isNullOrBlank() &&
+                    !rawgApiKey.equals("YOUR_RAWG_API_KEY", ignoreCase = true)
+            if (hasRawgApiKey) {
+                try {
+                    val rawgSearch = com.example.data.remote.RawgClient.searchRawgGames(baseGame.title, rawgApiKey, limit = 1)
+                    val match = rawgSearch.firstOrNull { it.title.equals(baseGame.title, ignoreCase = true) } ?: rawgSearch.firstOrNull()
+                    if (match != null) {
+                        val rawgId = match.id.removePrefix("rawg-").toLongOrNull()
+                        val fullDetail = if (rawgId != null) {
+                            com.example.data.remote.RawgClient.getRawgGameDetails(rawgId, rawgApiKey)
+                        } else null
+
+                        val rawgReviews = if (rawgId != null) {
+                            com.example.data.remote.RawgClient.getRawgReviews(rawgId, rawgApiKey)
+                        } else emptyList()
+
+                        baseGame = if (fullDetail != null) {
+                            fullDetail.copy(id = gameId)
+                        } else {
+                            baseGame.copy(
+                                posterUrl = match.posterUrl,
+                                bannerUrl = match.bannerUrl,
+                                screenshots = match.screenshots.ifEmpty { baseGame.screenshots },
+                                rawgUrl = match.rawgUrl,
+                                rawgSlug = match.rawgSlug,
+                                description = if (match.description.length > 20) match.description else baseGame.description,
+                                ratingBreakdown = match.ratingBreakdown
+                            )
+                        }
+                        cacheDao.insertGame(baseGame.toCachedEntity())
+                        ensureReviewsForGame(gameId, baseGame.title, baseGame.developer, baseGame.userRating, baseGame.genres, rawgReviews)
+                    } else {
+                        ensureReviewsForGame(gameId, baseGame.title, baseGame.developer, baseGame.userRating, baseGame.genres, emptyList())
+                    }
+                } catch (e: Exception) {
+                    ensureReviewsForGame(gameId, baseGame.title, baseGame.developer, baseGame.userRating, baseGame.genres, emptyList())
+                }
+            } else {
+                ensureReviewsForGame(gameId, baseGame.title, baseGame.developer, baseGame.userRating, baseGame.genres, emptyList())
             }
         }
 
@@ -198,7 +294,10 @@ class GameRepository(private val context: Context) {
         if (cachedOffers.isNotEmpty()) {
             val digital = cachedOffers.filter { it.copyType == CopyType.DIGITAL.name }.map { it.toDomainModel() }
             val physical = cachedOffers.filter { it.copyType == CopyType.PHYSICAL.name }.map { it.toDomainModel() }
-            return@withContext baseGame.copy(digitalOffers = digital, physicalOffers = physical)
+            val hasLoaded = digital.any { it.storeName.contains("Loaded", ignoreCase = true) }
+            if (hasLoaded) {
+                return@withContext baseGame.copy(digitalOffers = digital, physicalOffers = physical)
+            }
         }
 
         // 3. Otherwise generate and cache fresh offers
@@ -224,6 +323,25 @@ class GameRepository(private val context: Context) {
         )
     }
 
+    suspend fun getTrendingGames(): List<GameDetail> = withContext(Dispatchers.IO) {
+        val rawgApiKey = com.example.BuildConfig.RAWG_API_KEY
+        val hasRawgApiKey = !rawgApiKey.isNullOrBlank() &&
+                !rawgApiKey.equals("YOUR_RAWG_API_KEY", ignoreCase = true)
+        if (hasRawgApiKey) {
+            try {
+                val trending = com.example.data.remote.RawgClient.getTrendingGames(apiKey = rawgApiKey, limit = 20)
+                if (trending.isNotEmpty()) {
+                    cacheDao.insertGames(trending.map { it.toCachedEntity() })
+                    return@withContext trending
+                }
+            } catch (e: Exception) {
+                // Fall back cleanly to local Room cache
+            }
+        }
+        val cached = cacheDao.getAllCachedGames().firstOrNull() ?: emptyList()
+        cached.map { it.toDomainModel() }
+    }
+
     // Offline Wishlist operations
     fun getWishlistFlow(): Flow<List<WishlistItemEntity>> = wishlistDao.getAllWishlist()
 
@@ -235,6 +353,10 @@ class GameRepository(private val context: Context) {
 
     fun isInWishlistFlow(gameId: String): Flow<Boolean> = wishlistDao.isInWishlist(gameId)
 
+    suspend fun isGameInWishlist(gameId: String): Boolean = withContext(Dispatchers.IO) {
+        wishlistDao.getWishlistItem(gameId) != null
+    }
+
     suspend fun addToWishlist(
         game: GameDetail,
         targetPrice: Double,
@@ -242,7 +364,8 @@ class GameRepository(private val context: Context) {
         notes: String = "",
         priority: String = "MEDIUM"
     ) = withContext(Dispatchers.IO) {
-        val localCurrentPrice = game.lowestHistoricalPriceUsd * country.exchangeRateToUsd
+        val localCurrentPrice = CountryPricingManager.getRegionalDealPrice(game.basePriceUsd, game.lowestHistoricalPriceUsd, country.code)
+        val localOriginalPrice = CountryPricingManager.getRegionalBasePrice(game.basePriceUsd, country.code)
         val entity = WishlistItemEntity(
             gameId = game.id,
             title = game.title,
@@ -250,7 +373,7 @@ class GameRepository(private val context: Context) {
             bannerUrl = game.bannerUrl,
             currentPrice = localCurrentPrice,
             targetPrice = targetPrice,
-            originalPrice = game.basePriceUsd * country.exchangeRateToUsd,
+            originalPrice = localOriginalPrice,
             releaseDate = game.releaseDate,
             notifyPriceDrop = true,
             notifyUpcomingRelease = true,
@@ -264,6 +387,16 @@ class GameRepository(private val context: Context) {
 
         // Also ensure game is cached offline in Room
         cacheDao.insertGame(game.toCachedEntity())
+
+        // Trigger real system notification confirmation for wishlist alert
+        NotificationHelper.showWishlistAddedNotification(
+            context = context,
+            gameId = game.id,
+            gameTitle = game.title,
+            targetPrice = targetPrice,
+            currencySymbol = country.currencySymbol,
+            priority = priority
+        )
     }
 
     suspend fun removeFromWishlist(gameId: String) = withContext(Dispatchers.IO) {
@@ -285,8 +418,85 @@ class GameRepository(private val context: Context) {
     // Reviews operations (persisted to Room)
     fun getReviewsForGameFlow(gameId: String): Flow<List<GameReviewEntity>> = db.reviewDao().getReviewsForGame(gameId)
 
+    suspend fun ensureReviewsForGame(
+        gameId: String,
+        gameTitle: String,
+        developer: String,
+        userRating: Float,
+        genres: List<String>,
+        rawgReviews: List<UserReview>
+    ) = withContext(Dispatchers.IO) {
+        val existingCount = db.reviewDao().getReviewCount(gameId)
+        if (existingCount > 0) return@withContext
+
+        if (rawgReviews.isNotEmpty()) {
+            rawgReviews.forEach { rev ->
+                val entity = GameReviewEntity(
+                    id = rev.id,
+                    gameId = gameId,
+                    reviewerName = rev.reviewerName,
+                    rating = rev.rating,
+                    platform = rev.platform,
+                    hoursPlayed = rev.hoursPlayed,
+                    reviewText = rev.reviewText,
+                    pros = rev.pros.joinToString(" | "),
+                    cons = rev.cons.joinToString(" | "),
+                    createdAtTimestamp = System.currentTimeMillis() - (1..10).random() * 86400000L,
+                    isVerified = rev.isVerifiedGamer
+                )
+                db.reviewDao().insertReview(entity)
+            }
+        } else {
+            val genreLabel = genres.firstOrNull() ?: "Action"
+            val sampleReviews = listOf(
+                GameReviewEntity(
+                    id = "gen-rev-1-$gameId",
+                    gameId = gameId,
+                    reviewerName = "ApexGamer_UK",
+                    rating = userRating.coerceIn(3.5f, 5.0f),
+                    platform = "PlayStation 5",
+                    hoursPlayed = (35..75).random(),
+                    reviewText = "$gameTitle delivers exceptional gameplay mechanics and stunning visual presentation. $developer created a truly captivating world.",
+                    pros = "Visuals | Performance | World Design",
+                    cons = "Slight difficulty spikes",
+                    createdAtTimestamp = System.currentTimeMillis() - 86400000L * 2,
+                    isVerified = true
+                ),
+                GameReviewEntity(
+                    id = "gen-rev-2-$gameId",
+                    gameId = gameId,
+                    reviewerName = "SteamVanguard",
+                    rating = (userRating - 0.2f).coerceIn(3.5f, 5.0f),
+                    platform = "PC / Steam",
+                    hoursPlayed = (45..120).random(),
+                    reviewText = "One of the best $genreLabel releases in recent memory. Highly responsive controls and immersive sound design make it a must-play.",
+                    pros = "Fluid Controls | Audio Design | Replayability",
+                    cons = "Minor UI clutter",
+                    createdAtTimestamp = System.currentTimeMillis() - 86400000L * 5,
+                    isVerified = true
+                ),
+                GameReviewEntity(
+                    id = "gen-rev-3-$gameId",
+                    gameId = gameId,
+                    reviewerName = "SeriesX_Commander",
+                    rating = (userRating + 0.1f).coerceIn(3.5f, 5.0f),
+                    platform = "Xbox Series X",
+                    hoursPlayed = (20..50).random(),
+                    reviewText = "Plays brilliantly at 60fps. Fast load times and great pacing from start to finish. Strongly recommended to any gamer.",
+                    pros = "60FPS Rock Solid | Pacing | Soundtrack",
+                    cons = "Short side quests",
+                    createdAtTimestamp = System.currentTimeMillis() - 86400000L * 9,
+                    isVerified = true
+                )
+            )
+            sampleReviews.forEach { db.reviewDao().insertReview(it) }
+        }
+    }
+
     suspend fun getInitialReviews(gameId: String): List<UserReview> {
-        return GameCatalog.INITIAL_REVIEWS.filter { it.gameId == gameId }
+        val fromCatalog = GameCatalog.INITIAL_REVIEWS.filter { it.gameId == gameId }
+        if (fromCatalog.isNotEmpty()) return fromCatalog
+        return emptyList()
     }
 
     suspend fun addReview(
@@ -372,8 +582,8 @@ class GameRepository(private val context: Context) {
 
         val currentLowestUsd = game.lowestHistoricalPriceUsd
         val newLowestUsd = (currentLowestUsd * (1.0 - discountPercent / 100.0)).coerceAtLeast(4.99)
-        val oldLocalPrice = currentLowestUsd * country.exchangeRateToUsd
-        val newLocalPrice = newLowestUsd * country.exchangeRateToUsd
+        val oldLocalPrice = CountryPricingManager.getRegionalDealPrice(game.basePriceUsd, currentLowestUsd, country.code)
+        val newLocalPrice = CountryPricingManager.getRegionalDealPrice(game.basePriceUsd, newLowestUsd, country.code)
 
         // Update in Room cache
         val updatedGame = game.copy(lowestHistoricalPriceUsd = newLowestUsd)

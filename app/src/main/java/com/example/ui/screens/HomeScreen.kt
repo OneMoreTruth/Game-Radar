@@ -32,6 +32,7 @@ import coil.request.ImageRequest
 import com.example.data.model.GameDetail
 import com.example.data.model.PlatformType
 import com.example.ui.components.CountrySelectorDialog
+import com.example.ui.components.PreferredPlatformSelectorDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.GameViewModel
 import com.example.ui.viewmodel.SortOption
@@ -47,6 +48,7 @@ fun HomeScreen(
     val selectedCountry by viewModel.selectedCountry.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedPlatform by viewModel.selectedPlatform.collectAsState()
+    val preferredPlatform by viewModel.preferredPlatform.collectAsState()
     val selectedSort by viewModel.selectedSort.collectAsState()
     val games by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
@@ -54,12 +56,23 @@ fun HomeScreen(
     val wishlist by viewModel.wishlistItems.collectAsState()
 
     var showCountryDialog by remember { mutableStateOf(false) }
+    var showPlatformDialog by remember { mutableStateOf(false) }
 
     if (showCountryDialog) {
         CountrySelectorDialog(
             selectedCountry = selectedCountry,
             onCountrySelected = { viewModel.setCountry(it) },
             onDismiss = { showCountryDialog = false }
+        )
+    }
+
+    if (showPlatformDialog) {
+        PreferredPlatformSelectorDialog(
+            preferredPlatform = preferredPlatform,
+            onPlatformSelected = { platform, syncFilter ->
+                viewModel.setPreferredPlatform(platform, updateActiveFilter = syncFilter)
+            },
+            onDismiss = { showPlatformDialog = false }
         )
     }
 
@@ -146,7 +159,55 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Preferred Platform Pill
+                    Surface(
+                        onClick = { showPlatformDialog = true },
+                        shape = RoundedCornerShape(20.dp),
+                        color = GamerSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder),
+                        modifier = Modifier.testTag("preferred_platform_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = when (preferredPlatform) {
+                                    PlatformType.PC -> Icons.Default.DesktopWindows
+                                    PlatformType.PS5 -> Icons.Default.Gamepad
+                                    PlatformType.XBOX -> Icons.Default.VideogameAsset
+                                    PlatformType.SWITCH -> Icons.Default.TabletAndroid
+                                    PlatformType.ALL -> Icons.Default.SportsEsports
+                                },
+                                contentDescription = "Preferred Platform",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = when (preferredPlatform) {
+                                    PlatformType.ALL -> "All"
+                                    PlatformType.PC -> "PC"
+                                    PlatformType.PS5 -> "PS5"
+                                    PlatformType.XBOX -> "Xbox"
+                                    PlatformType.SWITCH -> "Switch"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GamerTextPrimary
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Change preferred platform",
+                                tint = GamerTextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     // Alerts Bell
                     IconButton(
@@ -233,12 +294,23 @@ fun HomeScreen(
                 ) {
                     items(PlatformType.values()) { platform ->
                         val isSelected = selectedPlatform == platform
+                        val isPreferred = platform == preferredPlatform && platform != PlatformType.ALL
                         FilterChip(
                             selected = isSelected,
                             onClick = { viewModel.setPlatform(platform) },
+                            leadingIcon = if (isPreferred) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "Preferred",
+                                        tint = if (isSelected) GamerBg else NeonAmber,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            } else null,
                             label = {
                                 Text(
-                                    text = platform.displayName,
+                                    text = if (isPreferred) "${platform.displayName} ★" else platform.displayName,
                                     fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -312,14 +384,16 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxSize()
         ) {
+            val effectivePlatform = if (selectedPlatform != PlatformType.ALL) selectedPlatform else preferredPlatform
+
             // Featured Deal Hero Card (when not searching a specific query)
             if (searchQuery.isEmpty() && games.isNotEmpty()) {
                 val heroGame = games.first()
                 item {
                     FeaturedHeroDealCard(
                         game = heroGame,
-                        currencySymbol = selectedCountry.currencySymbol,
-                        rate = selectedCountry.exchangeRateToUsd,
+                        selectedCountry = selectedCountry,
+                        targetPlatform = effectivePlatform,
                         onClick = { onNavigateToDetail(heroGame.id) }
                     )
                 }
@@ -333,7 +407,10 @@ fun HomeScreen(
                         .padding(top = 4.dp)
                 ) {
                     Text(
-                        text = if (searchQuery.isEmpty()) "🎮 Tracked Games & Live Deals" else "🔍 Results for \"$searchQuery\"",
+                        text = if (searchQuery.isEmpty()) {
+                            if (effectivePlatform != PlatformType.ALL) "🎮 ${effectivePlatform.displayName} Games & Deals"
+                            else "🎮 Tracked Games & Live Deals"
+                        } else "🔍 Results for \"$searchQuery\"",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = GamerTextPrimary
@@ -382,8 +459,8 @@ fun HomeScreen(
                     val isWishlisted = wishlist.any { it.gameId == game.id }
                     GameItemCard(
                         game = game,
-                        currencySymbol = selectedCountry.currencySymbol,
-                        exchangeRate = selectedCountry.exchangeRateToUsd,
+                        selectedCountry = selectedCountry,
+                        targetPlatform = effectivePlatform,
                         isWishlisted = isWishlisted,
                         onWishlistToggle = {
                             viewModel.toggleWishlist(game)
@@ -399,13 +476,14 @@ fun HomeScreen(
 @Composable
 private fun FeaturedHeroDealCard(
     game: GameDetail,
-    currencySymbol: String,
-    rate: Double,
+    selectedCountry: com.example.data.model.CountryInfo,
+    targetPlatform: PlatformType = PlatformType.ALL,
     onClick: () -> Unit
 ) {
-    val bestPrice = game.lowestHistoricalPriceUsd * rate
-    val retailPrice = game.basePriceUsd * rate
-    val savingsPercent = (((retailPrice - bestPrice) / retailPrice) * 100).toInt().coerceAtLeast(0)
+    val currencySymbol = selectedCountry.currencySymbol
+    val bestPrice = game.getDisplayLowestPrice(selectedCountry, targetPlatform)
+    val retailPrice = game.getDisplayBasePrice(selectedCountry, targetPlatform)
+    val savingsPercent = if (retailPrice > 0) (((retailPrice - bestPrice) / retailPrice) * 100).toInt().coerceAtLeast(0) else 0
 
     Surface(
         shape = RoundedCornerShape(18.dp),
@@ -460,7 +538,7 @@ private fun FeaturedHeroDealCard(
                     shadowElevation = 4.dp
                 ) {
                     Text(
-                        text = "⭐ FEATURED DEAL",
+                        text = if (targetPlatform != PlatformType.ALL) "⭐ ${targetPlatform.displayName.uppercase()} DEAL" else "⭐ FEATURED DEAL",
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -516,10 +594,26 @@ private fun FeaturedHeroDealCard(
                         textDecoration = TextDecoration.LineThrough
                     )
                     Spacer(modifier = Modifier.width(10.dp))
+                    if (targetPlatform != PlatformType.ALL) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = NeonCyan.copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NeonCyan)
+                        ) {
+                            Text(
+                                text = targetPlatform.displayName,
+                                fontSize = 11.sp,
+                                color = NeonCyan,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(
                         text = "Metacritic: ${game.metacriticScore}",
                         fontSize = 12.sp,
-                        color = NeonCyan,
+                        color = GamerTextSecondary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -531,15 +625,16 @@ private fun FeaturedHeroDealCard(
 @Composable
 private fun GameItemCard(
     game: GameDetail,
-    currencySymbol: String,
-    exchangeRate: Double,
+    selectedCountry: com.example.data.model.CountryInfo,
+    targetPlatform: PlatformType = PlatformType.ALL,
     isWishlisted: Boolean,
     onWishlistToggle: () -> Unit,
     onClick: () -> Unit
 ) {
-    val bestPrice = game.lowestHistoricalPriceUsd * exchangeRate
-    val retailPrice = game.basePriceUsd * exchangeRate
-    val discountPercent = (((retailPrice - bestPrice) / retailPrice) * 100).toInt().coerceAtLeast(0)
+    val currencySymbol = selectedCountry.currencySymbol
+    val bestPrice = game.getDisplayLowestPrice(selectedCountry, targetPlatform)
+    val retailPrice = game.getDisplayBasePrice(selectedCountry, targetPlatform)
+    val discountPercent = if (retailPrice > 0) (((retailPrice - bestPrice) / retailPrice) * 100).toInt().coerceAtLeast(0) else 0
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -630,14 +725,16 @@ private fun GameItemCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         game.platforms.take(3).forEach { p ->
+                            val isCurrentPlatform = (p == targetPlatform)
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = GamerSurfaceHighlight
+                                color = if (isCurrentPlatform) NeonCyan.copy(alpha = 0.25f) else GamerSurfaceHighlight,
+                                border = if (isCurrentPlatform) androidx.compose.foundation.BorderStroke(1.dp, NeonCyan) else null
                             ) {
                                 Text(
                                     text = p.name,
                                     fontSize = 10.sp,
-                                    color = NeonCyan,
+                                    color = if (isCurrentPlatform) NeonCyan else GamerTextSecondary,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
@@ -681,11 +778,29 @@ private fun GameItemCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column {
-                        Text(
-                            text = "Best Deal",
-                            fontSize = 10.sp,
-                            color = GamerTextMuted
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (targetPlatform != PlatformType.ALL) "${targetPlatform.displayName} Deal" else "Best Deal",
+                                fontSize = 10.sp,
+                                color = GamerTextMuted
+                            )
+                            if (targetPlatform != PlatformType.ALL) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(3.dp),
+                                    color = NeonCyan.copy(alpha = 0.15f),
+                                    border = androidx.compose.foundation.BorderStroke(0.5.dp, NeonCyan)
+                                ) {
+                                    Text(
+                                        text = targetPlatform.name,
+                                        color = NeonCyan,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 0.5.dp)
+                                    )
+                                }
+                            }
+                        }
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 text = "$currencySymbol${"%.2f".format(bestPrice)}",

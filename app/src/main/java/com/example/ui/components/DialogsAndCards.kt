@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.CountryInfo
+import com.example.data.model.PlatformType
 import com.example.data.model.StoreOffer
 import com.example.ui.theme.*
 
@@ -138,6 +139,157 @@ fun CountrySelectorDialog(
 }
 
 @Composable
+fun PreferredPlatformSelectorDialog(
+    preferredPlatform: PlatformType,
+    onPlatformSelected: (PlatformType, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var syncActiveFilter by remember { mutableStateOf(true) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = GamerSurfaceElevated,
+            border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .testTag("preferred_platform_dialog")
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SportsEsports,
+                        contentDescription = "Preferred Platform",
+                        tint = NeonCyan,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Preferred Platform",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = GamerTextPrimary
+                    )
+                }
+                Text(
+                    text = "Select your preferred console or PC. GameRadar will prioritize and filter prices, deals, and store offers to match.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GamerTextSecondary,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                PlatformType.values().forEach { platform ->
+                    val isSelected = platform == preferredPlatform
+                    val iconVector = when (platform) {
+                        PlatformType.ALL -> Icons.Default.SportsEsports
+                        PlatformType.PC -> Icons.Default.DesktopWindows
+                        PlatformType.PS5 -> Icons.Default.Gamepad
+                        PlatformType.XBOX -> Icons.Default.VideogameAsset
+                        PlatformType.SWITCH -> Icons.Default.TabletAndroid
+                    }
+                    val subtitle = when (platform) {
+                        PlatformType.ALL -> "Compare across all consoles and PC storefronts"
+                        PlatformType.PC -> "Steam, Epic Games, CheapShark & PC Keys"
+                        PlatformType.PS5 -> "PlayStation Store, Loaded PS5 keys & Boxed Discs"
+                        PlatformType.XBOX -> "Xbox Games Store, Loaded keys & Xbox Discs"
+                        PlatformType.SWITCH -> "Nintendo eShop & Switch Cartridges"
+                    }
+
+                    Surface(
+                        onClick = {
+                            onPlatformSelected(platform, syncActiveFilter)
+                            onDismiss()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) GamerSurfaceHighlight else Color.Transparent,
+                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, NeonCyan) else null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .testTag("preferred_platform_option_${platform.name}")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = iconVector,
+                                contentDescription = platform.displayName,
+                                tint = if (isSelected) NeonCyan else GamerTextSecondary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = platform.displayName,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) NeonCyan else GamerTextPrimary,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = subtitle,
+                                    fontSize = 11.sp,
+                                    color = GamerTextMuted
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Selected",
+                                    tint = NeonCyan,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { syncActiveFilter = !syncActiveFilter }
+                        .padding(vertical = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = syncActiveFilter,
+                        onCheckedChange = { syncActiveFilter = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = NeonCyan,
+                            checkmarkColor = GamerBg
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Also filter active search/home to this console",
+                        fontSize = 12.sp,
+                        color = GamerTextSecondary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Close", color = GamerTextSecondary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun StoreOfferRow(
     offer: StoreOffer,
     currencySymbol: String,
@@ -145,12 +297,14 @@ fun StoreOfferRow(
 ) {
     val context = LocalContext.current
 
+    val isLoadedStore = offer.storeName.contains("Loaded", ignoreCase = true)
+
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = GamerSurfaceElevated,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (offer.discountPercent > 20) NeonGreen.copy(alpha = 0.4f) else GamerBorder
+            if (isLoadedStore) NeonPink else if (offer.discountPercent > 20) NeonGreen.copy(alpha = 0.5f) else GamerBorder
         ),
         modifier = modifier
             .fillMaxWidth()
@@ -165,11 +319,27 @@ fun StoreOfferRow(
                     Text(
                         text = offer.storeName,
                         fontWeight = FontWeight.Bold,
-                        color = GamerTextPrimary,
+                        color = if (isLoadedStore) NeonPink else GamerTextPrimary,
                         fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (isLoadedStore) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = NeonPink.copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NeonPink)
+                        ) {
+                            Text(
+                                text = "⚡ AUTO-IMPORTED",
+                                color = NeonPink,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     if (offer.discountPercent > 0) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
@@ -190,10 +360,26 @@ fun StoreOfferRow(
 
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = GamerSurfaceHighlight,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder)
+                    ) {
+                        Text(
+                            text = offer.platform.displayName,
+                            color = NeonCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = offer.edition,
                         fontSize = 12.sp,
-                        color = GamerTextSecondary
+                        color = GamerTextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = " • ",
@@ -229,37 +415,65 @@ fun StoreOfferRow(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            Button(
-                onClick = {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(offer.purchaseUrl))
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        // ignore
+            if (isLoadedStore) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = NeonPink.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonPink),
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "In-App Imported Price",
+                            tint = NeonPink,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "In-App Price",
+                            fontWeight = FontWeight.Bold,
+                            color = NeonPink,
+                            fontSize = 12.sp
+                        )
                     }
-                },
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = NeonCyan,
-                    contentColor = GamerBg
-                ),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .testTag("buy_now_button_${offer.id}")
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Buy Now",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.OpenInNew,
-                        contentDescription = "Open Store",
-                        modifier = Modifier.size(14.dp)
-                    )
+                }
+            } else {
+                Button(
+                    onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(offer.purchaseUrl))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonCyan,
+                        contentColor = GamerBg
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("buy_now_button_${offer.id}")
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Buy Now",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = "Open Store",
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }

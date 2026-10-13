@@ -14,8 +14,8 @@ object GameCatalog {
         GameDetail(
             id = "elden-ring",
             title = "Elden Ring: Shadow of the Erdtree",
-            bannerUrl = "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/b29/b2931557d3e0c8ca8eed470213b33e52.jpg",
+            posterUrl = "https://media.rawg.io/media/games/b29/b2931557d3e0c8ca8eed470213b33e52.jpg",
             platforms = listOf(PlatformType.PC, PlatformType.PS5, PlatformType.XBOX),
             developer = "FromSoftware Inc.",
             publisher = "Bandai Namco Entertainment",
@@ -28,9 +28,8 @@ object GameCatalog {
             trailerYoutubeId = "qLZenOn7WUo",
             trailerTitle = "Official Gameplay Reveal Trailer",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?q=80&w=800&auto=format&fit=crop",
-                "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
-                "https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/b29/b2931557d3e0c8ca8eed470213b33e52.jpg",
+                "https://media.rawg.io/media/screenshots/aeb/aeb339818818f260384218671c080ef8.jpg"
             ),
             basePriceUsd = 59.99,
             lowestHistoricalPriceUsd = 34.99,
@@ -49,13 +48,16 @@ object GameCatalog {
                     graphics = "NVIDIA GeForce RTX 2070 8GB or AMD Radeon RX 5700 XT 8GB",
                     storage = "60 GB SSD"
                 )
-            )
+            ),
+            rawgSlug = "elden-ring",
+            rawgUrl = "https://rawg.io/games/elden-ring",
+            popularityScore = 95000
         ),
         GameDetail(
             id = "cyberpunk-2077",
             title = "Cyberpunk 2077: Ultimate Edition",
-            bannerUrl = "https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/26d/26d4437715bee60138dab4a7c424deaa.jpg",
+            posterUrl = "https://media.rawg.io/media/games/26d/26d4437715bee60138dab4a7c424deaa.jpg",
             platforms = listOf(PlatformType.PC, PlatformType.PS5, PlatformType.XBOX),
             developer = "CD Projekt Red",
             publisher = "CD Projekt",
@@ -68,8 +70,8 @@ object GameCatalog {
             trailerYoutubeId = "UnA7tepsc7s",
             trailerTitle = "Phantom Liberty Official Cinematic Trailer",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1552824722-ddab1374e622?q=80&w=800&auto=format&fit=crop",
-                "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/26d/26d4437715bee60138dab4a7c424deaa.jpg",
+                "https://media.rawg.io/media/screenshots/0df/0df1c6daaa3e12c6a28cc16ae5b15bb3.jpg"
             ),
             basePriceUsd = 59.99,
             lowestHistoricalPriceUsd = 29.99,
@@ -88,13 +90,16 @@ object GameCatalog {
                     graphics = "NVIDIA GeForce RTX 3070 8GB or AMD Radeon RX 6800 XT",
                     storage = "70 GB NVMe SSD"
                 )
-            )
+            ),
+            rawgSlug = "cyberpunk-2077",
+            rawgUrl = "https://rawg.io/games/cyberpunk-2077",
+            popularityScore = 92000
         ),
         GameDetail(
             id = "zelda-totk",
             title = "The Legend of Zelda: Tears of the Kingdom",
-            bannerUrl = "https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/cc4/cc444f6f28a7e029ba5ce7464e16d4ea.jpg",
+            posterUrl = "https://media.rawg.io/media/games/cc4/cc444f6f28a7e029ba5ce7464e16d4ea.jpg",
             platforms = listOf(PlatformType.SWITCH),
             developer = "Nintendo EPD",
             publisher = "Nintendo",
@@ -107,18 +112,20 @@ object GameCatalog {
             trailerYoutubeId = "uHGShqcAHlQ",
             trailerTitle = "Official Launch Trailer",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
-                "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/cc4/cc444f6f28a7e029ba5ce7464e16d4ea.jpg"
             ),
             basePriceUsd = 69.99,
             lowestHistoricalPriceUsd = 49.99,
-            systemRequirements = null // Switch exclusive
+            systemRequirements = null,
+            rawgSlug = "the-legend-of-zelda-tears-of-the-kingdom",
+            rawgUrl = "https://rawg.io/games/the-legend-of-zelda-tears-of-the-kingdom",
+            popularityScore = 88000
         ),
         GameDetail(
             id = "baldurs-gate-3",
             title = "Baldur's Gate 3",
-            bannerUrl = "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/699/699222d81a47da29f968638e8d30f740.jpg",
+            posterUrl = "https://media.rawg.io/media/games/699/699222d81a47da29f968638e8d30f740.jpg",
             platforms = listOf(PlatformType.PC, PlatformType.PS5, PlatformType.XBOX),
             developer = "Larian Studios",
             publisher = "Larian Studios",
@@ -131,7 +138,7 @@ object GameCatalog {
             trailerYoutubeId = "1T22wN1BIzU",
             trailerTitle = "Official Launch Trailer",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/699/699222d81a47da29f968638e8d30f740.jpg"
             ),
             basePriceUsd = 59.99,
             lowestHistoricalPriceUsd = 47.99,
@@ -150,13 +157,16 @@ object GameCatalog {
                     graphics = "Nvidia 2060 Super / RX 5700 XT (8GB+ VRAM)",
                     storage = "150 GB SSD"
                 )
-            )
+            ),
+            rawgSlug = "baldurs-gate-3",
+            rawgUrl = "https://rawg.io/games/baldurs-gate-3",
+            popularityScore = 94000
         ),
         GameDetail(
             id = "spiderman-2",
             title = "Marvel's Spider-Man 2",
-            bannerUrl = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/34b/34b1f255e384810eed801e8b4e5f29f5.jpg",
+            posterUrl = "https://media.rawg.io/media/games/34b/34b1f255e384810eed801e8b4e5f29f5.jpg",
             platforms = listOf(PlatformType.PS5, PlatformType.PC),
             developer = "Insomniac Games",
             publisher = "Sony Interactive Entertainment",
@@ -169,7 +179,7 @@ object GameCatalog {
             trailerYoutubeId = "9fVYKs4amLE",
             trailerTitle = "Gameplay Reveal",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/34b/34b1f255e384810eed801e8b4e5f29f5.jpg"
             ),
             basePriceUsd = 69.99,
             lowestHistoricalPriceUsd = 49.99,
@@ -188,13 +198,16 @@ object GameCatalog {
                     graphics = "NVIDIA GeForce RTX 3060 or AMD Radeon RX 6700 XT",
                     storage = "85 GB SSD"
                 )
-            )
+            ),
+            rawgSlug = "marvels-spider-man-2",
+            rawgUrl = "https://rawg.io/games/marvels-spider-man-2",
+            popularityScore = 87000
         ),
         GameDetail(
             id = "black-myth-wukong",
             title = "Black Myth: Wukong",
-            bannerUrl = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/516/516d24666f7f216260a9f5d3cb86f85d.jpg",
+            posterUrl = "https://media.rawg.io/media/games/516/516d24666f7f216260a9f5d3cb86f85d.jpg",
             platforms = listOf(PlatformType.PC, PlatformType.PS5),
             developer = "Game Science",
             publisher = "Game Science",
@@ -207,7 +220,7 @@ object GameCatalog {
             trailerYoutubeId = "oXZbEa1yqR8",
             trailerTitle = "Official Launch Trailer",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/516/516d24666f7f216260a9f5d3cb86f85d.jpg"
             ),
             basePriceUsd = 59.99,
             lowestHistoricalPriceUsd = 49.99,
@@ -226,13 +239,16 @@ object GameCatalog {
                     graphics = "NVIDIA GeForce RTX 2060 / AMD Radeon RX 5700 XT",
                     storage = "130 GB SSD"
                 )
-            )
+            ),
+            rawgSlug = "black-myth-wukong",
+            rawgUrl = "https://rawg.io/games/black-myth-wukong",
+            popularityScore = 91000
         ),
         GameDetail(
             id = "monster-hunter-wilds",
             title = "Monster Hunter Wilds",
-            bannerUrl = "https://images.unsplash.com/photo-1552824722-ddab1374e622?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/04b/04b5f9ce02b9e4a3170ef595df474026.jpg",
+            posterUrl = "https://media.rawg.io/media/games/04b/04b5f9ce02b9e4a3170ef595df474026.jpg",
             platforms = listOf(PlatformType.PC, PlatformType.PS5, PlatformType.XBOX),
             developer = "Capcom",
             publisher = "Capcom",
@@ -245,7 +261,7 @@ object GameCatalog {
             trailerYoutubeId = "e57Wj6G3Jp8",
             trailerTitle = "State of Play Official Trailer",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/04b/04b5f9ce02b9e4a3170ef595df474026.jpg"
             ),
             basePriceUsd = 69.99,
             lowestHistoricalPriceUsd = 59.99,
@@ -264,13 +280,16 @@ object GameCatalog {
                     graphics = "NVIDIA GeForce RTX 4070 or AMD Radeon RX 7800 XT",
                     storage = "140 GB NVMe SSD"
                 )
-            )
+            ),
+            rawgSlug = "monster-hunter-wilds",
+            rawgUrl = "https://rawg.io/games/monster-hunter-wilds",
+            popularityScore = 86000
         ),
         GameDetail(
             id = "astro-bot",
             title = "Astro Bot",
-            bannerUrl = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1200&auto=format&fit=crop",
-            posterUrl = "https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=600&auto=format&fit=crop",
+            bannerUrl = "https://media.rawg.io/media/games/214/2143eb918546b3f6153723707297f642.jpg",
+            posterUrl = "https://media.rawg.io/media/games/214/2143eb918546b3f6153723707297f642.jpg",
             platforms = listOf(PlatformType.PS5),
             developer = "Team ASOBI",
             publisher = "Sony Interactive Entertainment",
@@ -283,11 +302,14 @@ object GameCatalog {
             trailerYoutubeId = "o3V-GsvszvQ",
             trailerTitle = "Official Launch Trailer",
             screenshots = listOf(
-                "https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?q=80&w=800&auto=format&fit=crop"
+                "https://media.rawg.io/media/games/214/2143eb918546b3f6153723707297f642.jpg"
             ),
             basePriceUsd = 59.99,
             lowestHistoricalPriceUsd = 49.99,
-            systemRequirements = null
+            systemRequirements = null,
+            rawgSlug = "astro-bot",
+            rawgUrl = "https://rawg.io/games/astro-bot",
+            popularityScore = 85000
         )
     )
 

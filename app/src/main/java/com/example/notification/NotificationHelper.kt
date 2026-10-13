@@ -20,6 +20,7 @@ object NotificationHelper {
 
     const val CHANNEL_PRICE_DROPS = "channel_price_drops"
     const val CHANNEL_RELEASES = "channel_upcoming_releases"
+    const val CHANNEL_WISHLIST = "channel_wishlist_alerts"
 
     fun initNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -36,6 +37,16 @@ object NotificationHelper {
                 enableVibration(true)
             }
 
+            val wishlistChannel = NotificationChannel(
+                CHANNEL_WISHLIST,
+                "Wishlist & Tracking Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Confirmations when games are added to your wishlist and price trackers"
+                enableLights(true)
+                enableVibration(true)
+            }
+
             val releaseChannel = NotificationChannel(
                 CHANNEL_RELEASES,
                 "Upcoming Game Releases",
@@ -45,6 +56,7 @@ object NotificationHelper {
             }
 
             notificationManager.createNotificationChannel(priceDropChannel)
+            notificationManager.createNotificationChannel(wishlistChannel)
             notificationManager.createNotificationChannel(releaseChannel)
         }
     }
@@ -172,6 +184,63 @@ object NotificationHelper {
                     gameTitle = gameTitle,
                     alertType = "UPCOMING_RELEASE",
                     storeName = "Global Launch",
+                    message = contentText,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun showWishlistAddedNotification(
+        context: Context,
+        gameId: String,
+        gameTitle: String,
+        targetPrice: Double,
+        currencySymbol: String = "$",
+        priority: String = "MEDIUM"
+    ) {
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("target_game_id", gameId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            gameId.hashCode() + 2,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val contentTitle = "🎯 Price Alert Active: $gameTitle"
+        val contentText = "Added to Wishlist ($priority). Alerting when price drops below $currencySymbol${"%.2f".format(targetPrice)}."
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_WISHLIST)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(contentTitle)
+            .setContentText(contentText)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("$contentText\nOffline-first tracking active in Room SQLite.")
+            )
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        if (hasNotificationPermission(context)) {
+            notificationManager.notify((System.currentTimeMillis() % 100000).toInt() + 2, notification)
+        }
+
+        // Persist to alert history
+        CoroutineScope(Dispatchers.IO).launch {
+            AppDatabase.getInstance(context).alertHistoryDao().insertAlert(
+                AlertHistoryEntity(
+                    gameId = gameId,
+                    gameTitle = gameTitle,
+                    alertType = "WISHLIST_ADDED",
+                    storeName = "Wishlist Monitor",
                     message = contentText,
                     timestamp = System.currentTimeMillis()
                 )

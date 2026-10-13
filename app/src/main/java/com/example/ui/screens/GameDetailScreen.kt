@@ -1,7 +1,9 @@
 package com.example.ui.screens
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import com.example.data.repository.CountryPricingManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,6 +41,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.CopyType
 import com.example.data.model.GameDetail
+import com.example.data.model.PlatformType
 import com.example.notification.NotificationHelper
 import com.example.ui.components.*
 import com.example.ui.theme.*
@@ -71,12 +74,15 @@ fun GameDetailScreen(
     }
 
     val selectedCountry by viewModel.selectedCountry.collectAsState()
+    val selectedPlatform by viewModel.selectedPlatform.collectAsState()
+    val preferredPlatform by viewModel.preferredPlatform.collectAsState()
     val game by viewModel.selectedGame.collectAsState()
     val reviews by viewModel.selectedGameReviews.collectAsState()
     val isInWishlist by viewModel.isInWishlist.collectAsState()
     val activePurchaseTab by viewModel.activePurchaseTab.collectAsState()
     val collectionTypes by viewModel.gameCollectionTypes.collectAsState()
 
+    var detailConsoleFilter by remember { mutableStateOf(PlatformType.ALL) }
     var activeSection by remember { mutableStateOf(DetailSectionTab.WHERE_TO_BUY) }
     var showCountryDialog by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
@@ -99,6 +105,16 @@ fun GameDetailScreen(
 
     val currentGame = game
 
+    LaunchedEffect(currentGame?.id, selectedPlatform, preferredPlatform) {
+        if (currentGame != null) {
+            if (selectedPlatform != PlatformType.ALL && currentGame.platforms.contains(selectedPlatform)) {
+                detailConsoleFilter = selectedPlatform
+            } else if (preferredPlatform != PlatformType.ALL && currentGame.platforms.contains(preferredPlatform)) {
+                detailConsoleFilter = preferredPlatform
+            }
+        }
+    }
+
     if (showReviewDialog && currentGame != null) {
         WriteReviewDialog(
             gameTitle = currentGame.title,
@@ -110,7 +126,7 @@ fun GameDetailScreen(
     }
 
     if (showTargetPriceDialog && currentGame != null) {
-        val currentBest = currentGame.lowestHistoricalPriceUsd * selectedCountry.exchangeRateToUsd
+        val currentBest = currentGame.getDisplayLowestPrice(selectedCountry)
         TargetPriceDialog(
             gameTitle = currentGame.title,
             currentPrice = currentBest,
@@ -253,14 +269,24 @@ fun GameDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Best Price in ${selectedCountry.name}",
-                            fontSize = 11.sp,
-                            color = GamerTextMuted
-                        )
+                        val loaded = currentGame.getLoadedPrice(selectedCountry, detailConsoleFilter)
+                        val best = currentGame.getDisplayLowestPrice(selectedCountry, detailConsoleFilter).coerceAtMost(loaded)
+                        val orig = currentGame.getDisplayBasePrice(selectedCountry, detailConsoleFilter)
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (detailConsoleFilter != PlatformType.ALL) "Loaded.com (${detailConsoleFilter.displayName})" else "Loaded.com Deal",
+                                fontSize = 11.sp,
+                                color = NeonPink,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = " • ${selectedCountry.name}",
+                                fontSize = 11.sp,
+                                color = GamerTextMuted
+                            )
+                        }
                         Row(verticalAlignment = Alignment.Bottom) {
-                            val best = currentGame.lowestHistoricalPriceUsd * selectedCountry.exchangeRateToUsd
-                            val orig = currentGame.basePriceUsd * selectedCountry.exchangeRateToUsd
                             Text(
                                 text = "${selectedCountry.currencySymbol}${"%.2f".format(best)}",
                                 fontWeight = FontWeight.ExtraBold,
@@ -275,6 +301,22 @@ fun GameDetailScreen(
                                     color = GamerTextMuted,
                                     textDecoration = TextDecoration.LineThrough
                                 )
+                            }
+                            if (detailConsoleFilter != PlatformType.ALL) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = NeonCyan.copy(alpha = 0.2f),
+                                    border = androidx.compose.foundation.BorderStroke(0.5.dp, NeonCyan)
+                                ) {
+                                    Text(
+                                        text = detailConsoleFilter.name,
+                                        color = NeonCyan,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -812,10 +854,232 @@ fun GameDetailScreen(
                         }
                     }
 
-                    val currentOffers = if (activePurchaseTab == CopyType.DIGITAL) {
+                    // Console / Platform Filter Chips
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = GamerSurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                                .testTag("detail_platform_filter_container")
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.SportsEsports,
+                                        contentDescription = "Console Filter",
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Filter Prices by Console / Platform",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GamerTextPrimary
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (preferredPlatform != PlatformType.ALL) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = NeonAmber.copy(alpha = 0.15f),
+                                            border = androidx.compose.foundation.BorderStroke(0.5.dp, NeonAmber)
+                                        ) {
+                                            Text(
+                                                text = "★ Pref: ${preferredPlatform.name}",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = NeonAmber,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                val supportedPlatforms = listOf(PlatformType.ALL) + currentGame.platforms
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    items(supportedPlatforms) { platform ->
+                                        val isSelected = detailConsoleFilter == platform
+                                        val isPref = platform == preferredPlatform && platform != PlatformType.ALL
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { detailConsoleFilter = platform },
+                                            leadingIcon = if (isPref) {
+                                                {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Star,
+                                                        contentDescription = "Preferred",
+                                                        tint = if (isSelected) GamerBg else NeonAmber,
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                }
+                                            } else null,
+                                            label = {
+                                                Text(
+                                                    text = if (platform == PlatformType.ALL) "All Consoles" else platform.displayName,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = NeonCyan,
+                                                selectedLabelColor = GamerBg,
+                                                containerColor = GamerSurfaceHighlight,
+                                                labelColor = GamerTextSecondary
+                                            ),
+                                            border = FilterChipDefaults.filterChipBorder(
+                                                enabled = true,
+                                                selected = isSelected,
+                                                borderColor = if (isSelected) NeonCyan else GamerBorder,
+                                                selectedBorderColor = NeonCyan
+                                            ),
+                                            modifier = Modifier.testTag("detail_console_chip_${platform.name}")
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Auto-Imported Loaded.com In-App Price Card
+                    item {
+                        val loadedPrice = currentGame.getLoadedPrice(selectedCountry, detailConsoleFilter)
+                        val loadedDiscount = currentGame.getLoadedDiscountPercent(selectedCountry, detailConsoleFilter)
+                        val regionalBase = currentGame.getDisplayBasePrice(selectedCountry, detailConsoleFilter)
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = GamerSurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, NeonPink),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .testTag("loaded_auto_imported_price_card")
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = NeonPink.copy(alpha = 0.2f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonPink)
+                                    ) {
+                                        Text(
+                                            text = "⚡ AUTO-IMPORTED PRICE",
+                                            color = NeonPink,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (detailConsoleFilter != PlatformType.ALL) "Loaded.com • ${detailConsoleFilter.displayName}" else "Loaded.com (CDKeys)",
+                                        fontWeight = FontWeight.Bold,
+                                        color = GamerTextPrimary,
+                                        fontSize = 14.sp
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = NeonGreen.copy(alpha = 0.2f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen)
+                                    ) {
+                                        Text(
+                                            text = "-$loadedDiscount% OFF",
+                                            color = NeonGreen,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.Bottom,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "${selectedCountry.currencySymbol}${"%.2f".format(loadedPrice)}",
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 28.sp,
+                                        color = NeonGreen
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    if (regionalBase > loadedPrice) {
+                                        Text(
+                                            text = "${selectedCountry.currencySymbol}${"%.2f".format(regionalBase)} MSRP",
+                                            fontSize = 13.sp,
+                                            color = GamerTextMuted,
+                                            textDecoration = TextDecoration.LineThrough,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (regionalBase > loadedPrice) {
+                                        Text(
+                                            text = "Save ${selectedCountry.currencySymbol}${"%.2f".format(regionalBase - loadedPrice)}",
+                                            color = NeonCyan,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                HorizontalDivider(color = GamerBorder, thickness = 0.8.dp)
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Verified Key",
+                                        tint = NeonGreen,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (detailConsoleFilter != PlatformType.ALL)
+                                            "In Stock • ${detailConsoleFilter.displayName} Live Key • ${selectedCountry.name} (${selectedCountry.currencyCode})"
+                                        else
+                                            "In Stock • Instant Digital Code • ${selectedCountry.name} (${selectedCountry.currencyCode})",
+                                        fontSize = 11.sp,
+                                        color = GamerTextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    val allOffers = if (activePurchaseTab == CopyType.DIGITAL) {
                         currentGame.digitalOffers
                     } else {
                         currentGame.physicalOffers
+                    }
+                    val currentOffers = if (detailConsoleFilter == PlatformType.ALL) {
+                        allOffers
+                    } else {
+                        allOffers.filter { it.platform == detailConsoleFilter }
                     }
 
                     if (currentOffers.isEmpty()) {
@@ -832,7 +1096,10 @@ fun GameDetailScreen(
                                     modifier = Modifier.padding(24.dp)
                                 ) {
                                     Text(
-                                        text = "No offers currently indexed for this copy type in ${selectedCountry.name}.",
+                                        text = if (detailConsoleFilter != PlatformType.ALL)
+                                            "No ${detailConsoleFilter.displayName} offers currently indexed for this copy type in ${selectedCountry.name}."
+                                        else
+                                            "No offers currently indexed for this copy type in ${selectedCountry.name}.",
                                         color = GamerTextSecondary,
                                         fontSize = 13.sp
                                     )

@@ -359,29 +359,7 @@ fun WishlistScreen(
 
                                         IconButton(
                                             onClick = {
-                                                viewModel.toggleWishlist(
-                                                    com.example.data.model.GameDetail(
-                                                        id = item.gameId,
-                                                        title = item.title,
-                                                        bannerUrl = item.posterUrl,
-                                                        posterUrl = item.posterUrl,
-                                                        platforms = emptyList(),
-                                                        developer = "",
-                                                        publisher = "",
-                                                        releaseDate = item.releaseDate,
-                                                        metacriticScore = 80,
-                                                        userRating = 4.5f,
-                                                        esrbRating = "T",
-                                                        genres = emptyList(),
-                                                        description = "",
-                                                        trailerYoutubeId = "",
-                                                        trailerTitle = "",
-                                                        screenshots = emptyList(),
-                                                        basePriceUsd = item.currentPrice,
-                                                        lowestHistoricalPriceUsd = item.currentPrice,
-                                                        systemRequirements = null
-                                                    )
-                                                )
+                                                viewModel.removeFromWishlist(item.gameId)
                                             },
                                             modifier = Modifier.size(24.dp)
                                         ) {

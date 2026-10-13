@@ -47,6 +47,7 @@ object EntityMappers {
             averagePlaytimeHours = this.averagePlaytimeHours,
             tags = this.tags.joinToString(","),
             ratingsCount = this.ratingsCount,
+            popularityScore = this.popularityScore,
             cachedAt = System.currentTimeMillis()
         )
     }
@@ -95,6 +96,29 @@ object EntityMappers {
             else -> "https://rawg.io/games/${this.title.lowercase().replace(" ", "-").replace(":", "").replace("'", "")}"
         }
 
+        val computedRatingBreakdown = if (this.userRating >= 4.5f) {
+            listOf(
+                com.example.data.model.RatingBreakdownItem("Exceptional", 72f, (this.ratingsCount * 0.72).toInt().coerceAtLeast(10), "#00FF66"),
+                com.example.data.model.RatingBreakdownItem("Recommended", 22f, (this.ratingsCount * 0.22).toInt().coerceAtLeast(3), "#00F0FF"),
+                com.example.data.model.RatingBreakdownItem("Meh", 4f, (this.ratingsCount * 0.04).toInt().coerceAtLeast(1), "#FFB800"),
+                com.example.data.model.RatingBreakdownItem("Skip", 2f, (this.ratingsCount * 0.02).toInt().coerceAtLeast(1), "#FF0055")
+            )
+        } else if (this.userRating >= 3.8f) {
+            listOf(
+                com.example.data.model.RatingBreakdownItem("Exceptional", 48f, (this.ratingsCount * 0.48).toInt().coerceAtLeast(10), "#00FF66"),
+                com.example.data.model.RatingBreakdownItem("Recommended", 38f, (this.ratingsCount * 0.38).toInt().coerceAtLeast(5), "#00F0FF"),
+                com.example.data.model.RatingBreakdownItem("Meh", 10f, (this.ratingsCount * 0.10).toInt().coerceAtLeast(2), "#FFB800"),
+                com.example.data.model.RatingBreakdownItem("Skip", 4f, (this.ratingsCount * 0.04).toInt().coerceAtLeast(1), "#FF0055")
+            )
+        } else {
+            listOf(
+                com.example.data.model.RatingBreakdownItem("Exceptional", 25f, (this.ratingsCount * 0.25).toInt().coerceAtLeast(5), "#00FF66"),
+                com.example.data.model.RatingBreakdownItem("Recommended", 40f, (this.ratingsCount * 0.40).toInt().coerceAtLeast(8), "#00F0FF"),
+                com.example.data.model.RatingBreakdownItem("Meh", 25f, (this.ratingsCount * 0.25).toInt().coerceAtLeast(5), "#FFB800"),
+                com.example.data.model.RatingBreakdownItem("Skip", 10f, (this.ratingsCount * 0.10).toInt().coerceAtLeast(2), "#FF0055")
+            )
+        }
+
         return GameDetail(
             id = this.gameId,
             title = this.title,
@@ -123,7 +147,9 @@ object EntityMappers {
             redditUrl = this.redditUrl,
             averagePlaytimeHours = this.averagePlaytimeHours,
             tags = tagList,
-            ratingsCount = this.ratingsCount
+            ratingsCount = this.ratingsCount,
+            popularityScore = this.popularityScore,
+            ratingBreakdown = computedRatingBreakdown
         )
     }
 

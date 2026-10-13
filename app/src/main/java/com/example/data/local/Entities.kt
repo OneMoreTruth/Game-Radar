@@ -69,6 +69,7 @@ data class CachedGameEntity(
     val averagePlaytimeHours: Int = 0,
     val tags: String = "",
     val ratingsCount: Int = 0,
+    val popularityScore: Int = 0,
     val cachedAt: Long = System.currentTimeMillis()
 )
 

@@ -34,6 +34,7 @@ import coil.request.ImageRequest
 import com.example.data.model.GameDetail
 import com.example.data.model.PlatformType
 import com.example.ui.components.CountrySelectorDialog
+import com.example.ui.components.PreferredPlatformSelectorDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.GameViewModel
 import com.example.ui.viewmodel.SortOption
@@ -47,6 +48,7 @@ fun SearchScreen(
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedPlatform by viewModel.selectedPlatform.collectAsState()
+    val preferredPlatform by viewModel.preferredPlatform.collectAsState()
     val selectedSort by viewModel.selectedSort.collectAsState()
     val games by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
@@ -54,6 +56,7 @@ fun SearchScreen(
     val wishlist by viewModel.wishlistItems.collectAsState()
 
     var showCountryDialog by remember { mutableStateOf(false) }
+    var showPlatformDialog by remember { mutableStateOf(false) }
 
     val quickSearches = remember {
         listOf("Elden Ring", "Cyberpunk", "Zelda", "Spider-Man", "Black Myth", "Baldur's Gate", "Monster Hunter")
@@ -64,6 +67,16 @@ fun SearchScreen(
             selectedCountry = selectedCountry,
             onCountrySelected = { viewModel.setCountry(it) },
             onDismiss = { showCountryDialog = false }
+        )
+    }
+
+    if (showPlatformDialog) {
+        PreferredPlatformSelectorDialog(
+            preferredPlatform = preferredPlatform,
+            onPlatformSelected = { platform, syncFilter ->
+                viewModel.setPreferredPlatform(platform, updateActiveFilter = syncFilter)
+            },
+            onDismiss = { showPlatformDialog = false }
         )
     }
 
@@ -143,6 +156,54 @@ fun SearchScreen(
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "Region",
+                                tint = GamerTextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Preferred Platform Pill Button
+                    Surface(
+                        onClick = { showPlatformDialog = true },
+                        shape = RoundedCornerShape(20.dp),
+                        color = GamerSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder),
+                        modifier = Modifier.testTag("search_preferred_platform_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = when (preferredPlatform) {
+                                    PlatformType.PC -> Icons.Default.DesktopWindows
+                                    PlatformType.PS5 -> Icons.Default.Gamepad
+                                    PlatformType.XBOX -> Icons.Default.VideogameAsset
+                                    PlatformType.SWITCH -> Icons.Default.TabletAndroid
+                                    PlatformType.ALL -> Icons.Default.SportsEsports
+                                },
+                                contentDescription = "Preferred Platform",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = when (preferredPlatform) {
+                                    PlatformType.ALL -> "All"
+                                    PlatformType.PC -> "PC"
+                                    PlatformType.PS5 -> "PS5"
+                                    PlatformType.XBOX -> "Xbox"
+                                    PlatformType.SWITCH -> "Switch"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GamerTextPrimary
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Change preferred platform",
                                 tint = GamerTextSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -245,12 +306,23 @@ fun SearchScreen(
                 ) {
                     items(PlatformType.values()) { platform ->
                         val isSelected = selectedPlatform == platform
+                        val isPreferred = platform == preferredPlatform && platform != PlatformType.ALL
                         FilterChip(
                             selected = isSelected,
                             onClick = { viewModel.setPlatform(platform) },
+                            leadingIcon = if (isPreferred) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "Preferred",
+                                        tint = if (isSelected) GamerBg else NeonAmber,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            } else null,
                             label = {
                                 Text(
-                                    text = platform.displayName,
+                                    text = if (isPreferred) "${platform.displayName} ★" else platform.displayName,
                                     fontSize = 11.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -406,13 +478,14 @@ fun SearchScreen(
                     }
                 }
             } else {
+                val effectivePlatform = if (selectedPlatform != PlatformType.ALL) selectedPlatform else preferredPlatform
                 // Game Search Result Cards in Lazy List
                 items(games, key = { it.id }) { game ->
                     val isWishlisted = wishlist.any { it.gameId == game.id }
                     SearchResultCard(
                         game = game,
-                        currencySymbol = selectedCountry.currencySymbol,
-                        exchangeRate = selectedCountry.exchangeRateToUsd,
+                        selectedCountry = selectedCountry,
+                        targetPlatform = effectivePlatform,
                         isWishlisted = isWishlisted,
                         onWishlistToggle = {
                             viewModel.toggleWishlist(game)
@@ -428,15 +501,16 @@ fun SearchScreen(
 @Composable
 private fun SearchResultCard(
     game: GameDetail,
-    currencySymbol: String,
-    exchangeRate: Double,
+    selectedCountry: com.example.data.model.CountryInfo,
+    targetPlatform: PlatformType = PlatformType.ALL,
     isWishlisted: Boolean,
     onWishlistToggle: () -> Unit,
     onClick: () -> Unit
 ) {
-    val bestPrice = game.lowestHistoricalPriceUsd * exchangeRate
-    val retailPrice = game.basePriceUsd * exchangeRate
-    val discountPercent = (((retailPrice - bestPrice) / retailPrice) * 100).toInt().coerceAtLeast(0)
+    val currencySymbol = selectedCountry.currencySymbol
+    val bestPrice = game.getDisplayLowestPrice(selectedCountry, targetPlatform)
+    val retailPrice = game.getDisplayBasePrice(selectedCountry, targetPlatform)
+    val discountPercent = if (retailPrice > 0) (((retailPrice - bestPrice) / retailPrice) * 100).toInt().coerceAtLeast(0) else 0
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -514,7 +588,7 @@ private fun SearchResultCard(
                         ) {
                             Icon(
                                 imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = "Toggle Wishlist",
+                                contentDescription = "Wishlist",
                                 tint = if (isWishlisted) NeonPink else GamerTextMuted,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -538,14 +612,16 @@ private fun SearchResultCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         game.platforms.take(3).forEach { platform ->
+                            val isCurrent = platform == targetPlatform
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = GamerSurfaceHighlight
+                                color = if (isCurrent) NeonCyan.copy(alpha = 0.25f) else GamerSurfaceHighlight,
+                                border = if (isCurrent) androidx.compose.foundation.BorderStroke(1.dp, NeonCyan) else null
                             ) {
                                 Text(
                                     text = platform.name,
                                     fontSize = 9.sp,
-                                    color = NeonCyan,
+                                    color = if (isCurrent) NeonCyan else GamerTextSecondary,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                 )
@@ -591,11 +667,29 @@ private fun SearchResultCard(
                         .padding(top = 6.dp)
                 ) {
                     Column {
-                        Text(
-                            text = "Best Available Deal",
-                            fontSize = 10.sp,
-                            color = GamerTextMuted
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (targetPlatform != PlatformType.ALL) "${targetPlatform.displayName} Deal" else "Best Available Deal",
+                                fontSize = 10.sp,
+                                color = GamerTextMuted
+                            )
+                            if (targetPlatform != PlatformType.ALL) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(3.dp),
+                                    color = NeonCyan.copy(alpha = 0.15f),
+                                    border = androidx.compose.foundation.BorderStroke(0.5.dp, NeonCyan)
+                                ) {
+                                    Text(
+                                        text = targetPlatform.name,
+                                        color = NeonCyan,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 0.5.dp)
+                                    )
+                                }
+                            }
+                        }
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 text = "$currencySymbol${"%.2f".format(bestPrice)}",

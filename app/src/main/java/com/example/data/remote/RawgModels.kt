@@ -23,11 +23,13 @@ data class RawgGameItem(
     @Json(name = "ratings_count") val ratingsCount: Int? = null,
     val metacritic: Int? = null,
     val playtime: Int? = null,
+    val added: Int? = null,
     val platforms: List<RawgPlatformWrapper>? = null,
     val genres: List<RawgNamedEntity>? = null,
     val tags: List<RawgNamedEntity>? = null,
     @Json(name = "short_screenshots") val shortScreenshots: List<RawgScreenshot>? = null,
-    @Json(name = "esrb_rating") val esrbRating: RawgNamedEntity? = null
+    @Json(name = "esrb_rating") val esrbRating: RawgNamedEntity? = null,
+    val ratings: List<RawgRatingBreakdown>? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -47,13 +49,23 @@ data class RawgGameDetailResponse(
     @Json(name = "ratings_count") val ratingsCount: Int? = null,
     val metacritic: Int? = null,
     val playtime: Int? = null,
+    val added: Int? = null,
     val platforms: List<RawgPlatformWrapper>? = null,
     val genres: List<RawgNamedEntity>? = null,
     val tags: List<RawgNamedEntity>? = null,
     val developers: List<RawgNamedEntity>? = null,
     val publishers: List<RawgNamedEntity>? = null,
     @Json(name = "esrb_rating") val esrbRating: RawgNamedEntity? = null,
-    val stores: List<RawgStoreWrapper>? = null
+    val stores: List<RawgStoreWrapper>? = null,
+    val ratings: List<RawgRatingBreakdown>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class RawgRatingBreakdown(
+    val id: Long? = null,
+    val title: String? = null,
+    val count: Int? = null,
+    val percent: Double? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -114,3 +126,29 @@ data class RawgTrailerData(
     val max: String? = null,
     @Json(name = "480") val p480: String? = null
 )
+
+@JsonClass(generateAdapter = true)
+data class RawgReviewListResponse(
+    val count: Int? = null,
+    val next: String? = null,
+    val previous: String? = null,
+    val results: List<RawgReviewItem> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class RawgReviewItem(
+    val id: Long,
+    val text: String? = null,
+    val rating: Int? = null,
+    val user: RawgReviewUser? = null,
+    val created: String? = null,
+    val edited: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class RawgReviewUser(
+    val id: Long? = null,
+    val username: String? = null,
+    val avatar: String? = null
+)
+
