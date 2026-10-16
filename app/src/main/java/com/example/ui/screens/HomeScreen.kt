@@ -1,9 +1,12 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -98,31 +101,34 @@ fun HomeScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = NeonCyan,
-                            modifier = Modifier.size(36.dp)
+                            color = Color.Transparent,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.SportsEsports,
-                                    contentDescription = "GameRadar",
-                                    tint = GamerBg,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                            Image(
+                                painter = painterResource(id = R.drawable.game_radar_icon),
+                                contentDescription = "GameRadar",
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
                             Text(
                                 text = "GameRadar",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Black,
                                 color = GamerTextPrimary,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Global Game & Deal Tracker",
+                                text = "Global Deals & Tracker",
                                 fontSize = 11.sp,
-                                color = GamerTextSecondary
+                                color = NeonCyan,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

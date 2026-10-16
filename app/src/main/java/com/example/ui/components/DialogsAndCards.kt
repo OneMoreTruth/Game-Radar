@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -314,134 +315,147 @@ fun StoreOfferRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(14.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isLoadedStore) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = offer.storeName,
+                        text = "Loaded.com",
                         fontWeight = FontWeight.Bold,
-                        color = if (isLoadedStore) NeonPink else GamerTextPrimary,
+                        color = GamerTextPrimary,
                         fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (isLoadedStore) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = NeonPink.copy(alpha = 0.2f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, NeonPink)
-                        ) {
-                            Text(
-                                text = "⚡ AUTO-IMPORTED",
-                                color = NeonPink,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    if (offer.discountPercent > 0) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = NeonGreen.copy(alpha = 0.2f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen)
-                        ) {
-                            Text(
-                                text = "-${offer.discountPercent}%",
-                                color = NeonGreen,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = GamerSurfaceHighlight,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder)
-                    ) {
-                        Text(
-                            text = offer.platform.displayName,
-                            color = NeonCyan,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = offer.edition,
-                        fontSize = 12.sp,
-                        color = GamerTextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = " • ",
-                        fontSize = 12.sp,
-                        color = GamerTextMuted
-                    )
-                    Text(
-                        text = offer.condition,
-                        fontSize = 11.sp,
-                        color = if (offer.condition.contains("Pre-Owned")) NeonAmber else NeonCyan
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "$currencySymbol${"%.2f".format(offer.price)}",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 18.sp,
-                        color = if (offer.discountPercent > 0) NeonGreen else GamerTextPrimary
+                        color = NeonGreen
                     )
-                    if (offer.discountPercent > 0 && offer.originalPrice > offer.price) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "$currencySymbol${"%.2f".format(offer.originalPrice)}",
-                            fontSize = 13.sp,
-                            color = GamerTextMuted,
-                            textDecoration = TextDecoration.LineThrough
-                        )
-                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
-            if (isLoadedStore) {
-                Surface(
+                Button(
+                    onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(offer.purchaseUrl))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                    },
                     shape = RoundedCornerShape(10.dp),
-                    color = NeonPink.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonPink),
-                    modifier = Modifier.padding(start = 4.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonPink,
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("buy_now_button_${offer.id}")
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "In-App Imported Price",
-                            tint = NeonPink,
-                            modifier = Modifier.size(14.dp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Direct Link",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "In-App Price",
-                            fontWeight = FontWeight.Bold,
-                            color = NeonPink,
-                            fontSize = 12.sp
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = "Direct link to game page",
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
             } else {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = offer.storeName,
+                            fontWeight = FontWeight.Bold,
+                            color = GamerTextPrimary,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (offer.discountPercent > 0) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = NeonGreen.copy(alpha = 0.2f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen)
+                            ) {
+                                Text(
+                                    text = "-${offer.discountPercent}%",
+                                    color = NeonGreen,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = GamerSurfaceHighlight,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder)
+                        ) {
+                            Text(
+                                text = offer.platform.displayName,
+                                color = NeonCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = offer.edition,
+                            fontSize = 12.sp,
+                            color = GamerTextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = " • ",
+                            fontSize = 12.sp,
+                            color = GamerTextMuted
+                        )
+                        Text(
+                            text = offer.condition,
+                            fontSize = 11.sp,
+                            color = if (offer.condition.contains("Pre-Owned")) NeonAmber else NeonCyan
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "$currencySymbol${"%.2f".format(offer.price)}",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            color = if (offer.discountPercent > 0) NeonGreen else GamerTextPrimary
+                        )
+                        if (offer.discountPercent > 0 && offer.originalPrice > offer.price) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "$currencySymbol${"%.2f".format(offer.originalPrice)}",
+                                fontSize = 13.sp,
+                                color = GamerTextMuted,
+                                textDecoration = TextDecoration.LineThrough
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
                 Button(
                     onClick = {
                         try {
@@ -469,7 +483,7 @@ fun StoreOfferRow(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
-                            imageVector = Icons.Default.OpenInNew,
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = "Open Store",
                             modifier = Modifier.size(14.dp)
                         )
@@ -1057,3 +1071,163 @@ fun PriceDropAlertSimulatorDialog(
         }
     }
 }
+
+@Composable
+fun AccountProfileDialog(
+    user: com.google.firebase.auth.FirebaseUser?,
+    wishlistCount: Int,
+    libraryCount: Int,
+    onSignOut: () -> Unit,
+    onSignInPrompt: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = GamerSurfaceElevated,
+            border = androidx.compose.foundation.BorderStroke(1.dp, GamerBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .testTag("account_profile_dialog")
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header with Avatar
+                Surface(
+                    shape = CircleShape,
+                    color = NeonCyan.copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, NeonCyan),
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (user != null) {
+                            Text(
+                                text = (user.displayName?.firstOrNull() ?: user.email?.firstOrNull() ?: 'U').uppercase(),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 26.sp,
+                                color = NeonCyan
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.PersonOutline,
+                                contentDescription = "Guest",
+                                tint = GamerTextSecondary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = user?.displayName ?: "Guest Gamer",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = GamerTextPrimary
+                )
+
+                Text(
+                    text = user?.email ?: "Browsing as guest (cloud sync inactive)",
+                    fontSize = 12.sp,
+                    color = if (user != null) NeonCyan else GamerTextMuted
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Stats summary
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = GamerSurfaceHighlight,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "$wishlistCount",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp,
+                                color = NeonPink
+                            )
+                            Text("Wishlisted", fontSize = 11.sp, color = GamerTextSecondary)
+                        }
+                        VerticalDivider(modifier = Modifier.height(28.dp), color = GamerBorder)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "$libraryCount",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp,
+                                color = NeonGreen
+                            )
+                            Text("Library", fontSize = 11.sp, color = GamerTextSecondary)
+                        }
+                        VerticalDivider(modifier = Modifier.height(28.dp), color = GamerBorder)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (user != null) "Cloud" else "Local",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp,
+                                color = if (user != null) NeonCyan else NeonAmber
+                            )
+                            Text("Sync", fontSize = 11.sp, color = GamerTextSecondary)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                if (user != null) {
+                    Button(
+                        onClick = {
+                            onSignOut()
+                            onDismiss()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonPink.copy(alpha = 0.2f),
+                            contentColor = NeonPink
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("profile_sign_out_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Sign Out",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Sign Out", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onSignInPrompt()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("profile_sign_in_button")
+                    ) {
+                        Text("Sign in with Google to Sync", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(onClick = onDismiss) {
+                    Text("Close", color = GamerTextSecondary)
+                }
+            }
+        }
+    }
+}
+

@@ -14,6 +14,7 @@ import com.example.data.model.PlatformType
 import com.example.data.model.UserReview
 import com.example.data.repository.CountryPricingManager
 import com.example.data.repository.GameRepository
+import com.example.data.auth.AuthManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -91,6 +92,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         performSearch()
+        viewModelScope.launch {
+            AuthManager.currentUser.collect { user ->
+                if (user != null) {
+                    repository.syncUserDataFromCloud(user.uid)
+                }
+            }
+        }
     }
 
     fun setCountry(country: CountryInfo) {

@@ -22,6 +22,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import android.util.Log
+import com.example.R
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -31,6 +36,16 @@ class GameRepository(private val context: Context) {
     private val api = ApiClient.cheapSharkService
     private val cacheDao = db.gameCacheDao()
     private val wishlistDao = db.wishlistDao()
+
+    private val firestore: FirebaseFirestore? by lazy {
+        try {
+            val dbId = context.getString(R.string.firestore_database_id)
+            FirebaseFirestore.getInstance(dbId)
+        } catch (e: Exception) {
+            Log.e("GameRepo", "Failed to initialize FirebaseFirestore with custom db ID", e)
+            null
+        }
+    }
 
     init {
         // Pre-seed local cache with catalog games for immediate offline availability
@@ -385,6 +400,30 @@ class GameRepository(private val context: Context) {
         )
         wishlistDao.insertOrUpdate(entity)
 
+        // Sync to Cloud Firestore if user is authenticated
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null && firestore != null) {
+            try {
+                val data = mapOf(
+                    "userId" to user.uid,
+                    "gameId" to game.id,
+                    "title" to game.title,
+                    "posterUrl" to game.posterUrl,
+                    "bannerUrl" to game.bannerUrl,
+                    "currentPrice" to localCurrentPrice,
+                    "targetPrice" to targetPrice,
+                    "notes" to notes,
+                    "priority" to priority,
+                    "addedAt" to FieldValue.serverTimestamp()
+                )
+                firestore?.collection("users")?.document(user.uid)
+                    ?.collection("wishlist")?.document(game.id)
+                    ?.set(data)
+            } catch (e: Exception) {
+                Log.e("GameRepo", "Error syncing wishlist to Firestore", e)
+            }
+        }
+
         // Also ensure game is cached offline in Room
         cacheDao.insertGame(game.toCachedEntity())
 
@@ -401,6 +440,16 @@ class GameRepository(private val context: Context) {
 
     suspend fun removeFromWishlist(gameId: String) = withContext(Dispatchers.IO) {
         wishlistDao.deleteByGameId(gameId)
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null && firestore != null) {
+            try {
+                firestore?.collection("users")?.document(user.uid)
+                    ?.collection("wishlist")?.document(gameId)
+                    ?.delete()
+            } catch (e: Exception) {
+                Log.e("GameRepo", "Error deleting wishlist item from Firestore", e)
+            }
+        }
     }
 
     suspend fun updateWishlistTargetPrice(gameId: String, newTargetPrice: Double) = withContext(Dispatchers.IO) {
@@ -553,10 +602,114 @@ class GameRepository(private val context: Context) {
             addedAtTimestamp = System.currentTimeMillis()
         )
         db.collectionDao().insertOrUpdate(entity)
+
+        // Sync to Cloud Firestore if user is authenticated
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null && firestore != null) {
+            try {
+                val data = mapOf(
+                    "userId" to user.uid,
+                    "gameId" to gameId,
+                    "title" to title,
+                    "posterUrl" to posterUrl,
+                    "collectionType" to type,
+                    "rating" to rating,
+                    "platform" to platform,
+                    "notes" to notes,
+                    "addedAt" to FieldValue.serverTimestamp()
+                )
+                firestore?.collection("users")?.document(user.uid)
+                    ?.collection("collections")?.document("${gameId}_$type")
+                    ?.set(data)
+            } catch (e: Exception) {
+                Log.e("GameRepo", "Error syncing collection item to Firestore", e)
+            }
+        }
     }
 
     suspend fun removeFromCollection(gameId: String, type: String) = withContext(Dispatchers.IO) {
         db.collectionDao().removeFromCollection(gameId, type)
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null && firestore != null) {
+            try {
+                firestore?.collection("users")?.document(user.uid)
+                    ?.collection("collections")?.document("${gameId}_$type")
+                    ?.delete()
+            } catch (e: Exception) {
+                Log.e("GameRepo", "Error deleting collection item from Firestore", e)
+            }
+        }
+    }
+
+    // Two-way cloud synchronization for saved games
+    suspend fun syncUserDataFromCloud(userId: String) = withContext(Dispatchers.IO) {
+        val fs = firestore ?: return@withContext
+        try {
+            // Sync Wishlist from Firestore
+            fs.collection("users").document(userId).collection("wishlist")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        for (doc in snapshot.documents) {
+                            val gameId = doc.getString("gameId") ?: continue
+                            val title = doc.getString("title") ?: ""
+                            val posterUrl = doc.getString("posterUrl") ?: ""
+                            val bannerUrl = doc.getString("bannerUrl") ?: ""
+                            val currentPrice = doc.getDouble("currentPrice") ?: 0.0
+                            val targetPrice = doc.getDouble("targetPrice") ?: 0.0
+                            val notes = doc.getString("notes") ?: ""
+                            val priority = doc.getString("priority") ?: "MEDIUM"
+
+                            val entity = WishlistItemEntity(
+                                gameId = gameId,
+                                title = title,
+                                posterUrl = posterUrl,
+                                bannerUrl = bannerUrl,
+                                currentPrice = currentPrice,
+                                targetPrice = targetPrice,
+                                originalPrice = currentPrice,
+                                releaseDate = "",
+                                notifyPriceDrop = true,
+                                notifyUpcomingRelease = true,
+                                platforms = "All",
+                                developer = "",
+                                notes = notes,
+                                priority = priority,
+                                addedAtTimestamp = System.currentTimeMillis()
+                            )
+                            wishlistDao.insertOrUpdate(entity)
+                        }
+                    }
+                }
+
+            // Sync Library Collections from Firestore
+            fs.collection("users").document(userId).collection("collections")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        for (doc in snapshot.documents) {
+                            val gameId = doc.getString("gameId") ?: continue
+                            val title = doc.getString("title") ?: ""
+                            val posterUrl = doc.getString("posterUrl") ?: ""
+                            val type = doc.getString("collectionType") ?: "PLAYING"
+                            val entity = UserCollectionEntity(
+                                id = "${gameId}_$type",
+                                gameId = gameId,
+                                title = title,
+                                posterUrl = posterUrl,
+                                collectionType = type,
+                                rating = 5f,
+                                platform = "All",
+                                notes = "",
+                                addedAtTimestamp = System.currentTimeMillis()
+                            )
+                            db.collectionDao().insertOrUpdate(entity)
+                        }
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e("GameRepo", "Error syncing data from cloud", e)
+        }
     }
 
     // Alerts

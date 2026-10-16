@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar" />
+    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/gamer_bg</item>
+        <item name="android:statusBarColor">@color/gamer_bg</item>
+        <item name="android:navigationBarColor">@color/gamer_surface</item>
+    </style>
 </resources>

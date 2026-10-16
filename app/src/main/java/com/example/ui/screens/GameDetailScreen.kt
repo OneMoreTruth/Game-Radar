@@ -489,7 +489,7 @@ fun GameDetailScreen(
 
                         Spacer(modifier = Modifier.width(14.dp))
 
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             // Platforms
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 currentGame.platforms.forEach { p ->
@@ -952,10 +952,10 @@ fun GameDetailScreen(
                     }
 
                     // Auto-Imported Loaded.com In-App Price Card
+                    // Loaded.com Section: Limited to website name, price, and direct link to the game page
                     item {
                         val loadedPrice = currentGame.getLoadedPrice(selectedCountry, detailConsoleFilter)
-                        val loadedDiscount = currentGame.getLoadedDiscountPercent(selectedCountry, detailConsoleFilter)
-                        val regionalBase = currentGame.getDisplayBasePrice(selectedCountry, detailConsoleFilter)
+                        val loadedUrl = "https://loaded.com/catalogsearch/result/?q=${currentGame.title.replace(' ', '+')}"
 
                         Surface(
                             shape = RoundedCornerShape(16.dp),
@@ -966,105 +966,55 @@ fun GameDetailScreen(
                                 .padding(vertical = 8.dp)
                                 .testTag("loaded_auto_imported_price_card")
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = NeonPink.copy(alpha = 0.2f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonPink)
-                                    ) {
-                                        Text(
-                                            text = "⚡ AUTO-IMPORTED PRICE",
-                                            color = NeonPink,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (detailConsoleFilter != PlatformType.ALL) "Loaded.com • ${detailConsoleFilter.displayName}" else "Loaded.com (CDKeys)",
+                                        text = "Loaded.com",
                                         fontWeight = FontWeight.Bold,
-                                        color = GamerTextPrimary,
-                                        fontSize = 14.sp
+                                        fontSize = 17.sp,
+                                        color = GamerTextPrimary
                                     )
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = NeonGreen.copy(alpha = 0.2f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen)
-                                    ) {
-                                        Text(
-                                            text = "-$loadedDiscount% OFF",
-                                            color = NeonGreen,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Row(
-                                    verticalAlignment = Alignment.Bottom,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "${selectedCountry.currencySymbol}${"%.2f".format(loadedPrice)}",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 22.sp,
                                         color = NeonGreen
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    if (regionalBase > loadedPrice) {
-                                        Text(
-                                            text = "${selectedCountry.currencySymbol}${"%.2f".format(regionalBase)} MSRP",
-                                            fontSize = 13.sp,
-                                            color = GamerTextMuted,
-                                            textDecoration = TextDecoration.LineThrough,
-                                            modifier = Modifier.padding(bottom = 4.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    if (regionalBase > loadedPrice) {
-                                        Text(
-                                            text = "Save ${selectedCountry.currencySymbol}${"%.2f".format(regionalBase - loadedPrice)}",
-                                            color = NeonCyan,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            modifier = Modifier.padding(bottom = 4.dp)
-                                        )
-                                    }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                HorizontalDivider(color = GamerBorder, thickness = 0.8.dp)
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(loadedUrl))
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            // Handle invalid URL or browser missing
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = NeonPink,
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier.testTag("loaded_direct_link_button")
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Verified Key",
-                                        tint = NeonGreen,
-                                        modifier = Modifier.size(14.dp)
+                                    Text(
+                                        text = "Visit Loaded.com",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (detailConsoleFilter != PlatformType.ALL)
-                                            "In Stock • ${detailConsoleFilter.displayName} Live Key • ${selectedCountry.name} (${selectedCountry.currencyCode})"
-                                        else
-                                            "In Stock • Instant Digital Code • ${selectedCountry.name} (${selectedCountry.currencyCode})",
-                                        fontSize = 11.sp,
-                                        color = GamerTextSecondary
+                                    Icon(
+                                        imageVector = Icons.Default.OpenInNew,
+                                        contentDescription = "Direct link to game page",
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }

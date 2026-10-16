@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique Google user ID"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp via serverTimestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp via serverTimestamp"
+        }
+      },
+      "required": ["userId", "createdAt", "updatedAt"]
+    },
+    "WishlistItem": {
+      "title": "WishlistItem",
+      "description": "Saved game in user's cloud wishlist",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "description": "Unique game identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the saved game"
+        },
+        "posterUrl": {
+          "type": "string",
+          "description": "Game poster image URL"
+        },
+        "bannerUrl": {
+          "type": "string",
+          "description": "Game banner image URL"
+        },
+        "currentPrice": {
+          "type": "number",
+          "description": "Current recorded lowest price"
+        },
+        "targetPrice": {
+          "type": "number",
+          "description": "User target price alert threshold"
+        },
+        "originalPrice": {
+          "type": "number",
+          "description": "MSRP base price"
+        },
+        "notes": {
+          "type": "string",
+          "description": "User custom notes for this game"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"],
+          "description": "Priority tier"
+        },
+        "platforms": {
+          "type": "string",
+          "description": "Target gaming platforms"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp via serverTimestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp via serverTimestamp"
+        }
+      },
+      "required": ["gameId", "userId", "title", "createdAt", "updatedAt"]
+    },
+    "UserCollection": {
+      "title": "UserCollection",
+      "description": "User categorized game in backlog or library",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Collection item identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "gameId": {
+          "type": "string",
+          "description": "Unique game identifier"
+        },
+        "title": {
+          "type": "string",
+          "description": "Game title"
+        },
+        "posterUrl": {
+          "type": "string",
+          "description": "Poster thumbnail URL"
+        },
+        "collectionType": {
+          "type": "string",
+          "enum": ["PLAYING", "BACKLOG", "COMPLETED", "FAVORITE"],
+          "description": "Category status"
+        },
+        "rating": {
+          "type": "number",
+          "description": "User personal star rating"
+        },
+        "platform": {
+          "type": "string",
+          "description": "Platform version"
+        },
+        "notes": {
+          "type": "string",
+          "description": "User notes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp via serverTimestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp via serverTimestamp"
+        }
+      },
+      "required": ["id", "userId", "gameId", "title", "collectionType", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document"
+    },
+    "/users/{userId}/wishlist/{gameId}": {
+      "schema": "WishlistItem",
+      "description": "User's saved and tracked games for deals and price alerts"
+    },
+    "/users/{userId}/collections/{collectionId}": {
+      "schema": "UserCollection",
+      "description": "User's custom game collection status (Playing, Backlog, Completed, Favorite)"
+    }
+  }
+}

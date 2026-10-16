@@ -1,0 +1,151 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global deny-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidWishlistItem(data) {
+      return data.gameId is string && data.gameId.size() > 0 && data.gameId.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             (!('posterUrl' in data) || (data.posterUrl is string && data.posterUrl.size() <= 1000)) &&
+             (!('bannerUrl' in data) || (data.bannerUrl is string && data.bannerUrl.size() <= 1000)) &&
+             (!('currentPrice' in data) || (data.currentPrice is number && data.currentPrice >= 0.0 && data.currentPrice <= 100000.0)) &&
+             (!('targetPrice' in data) || (data.targetPrice is number && data.targetPrice >= 0.0 && data.targetPrice <= 100000.0)) &&
+             (!('originalPrice' in data) || (data.originalPrice is number && data.originalPrice >= 0.0 && data.originalPrice <= 100000.0)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('priority' in data) || (data.priority in ['HIGH', 'MEDIUM', 'LOW'])) &&
+             (!('platforms' in data) || (data.platforms is string && data.platforms.size() <= 100)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUserCollection(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.gameId is string && data.gameId.size() > 0 && data.gameId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             (!('posterUrl' in data) || (data.posterUrl is string && data.posterUrl.size() <= 1000)) &&
+             data.collectionType in ['PLAYING', 'BACKLOG', 'COMPLETED', 'FAVORITE'] &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 0.0 && data.rating <= 10.0)) &&
+             (!('platform' in data) || (data.platform is string && data.platform.size() <= 50)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // User Profile
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow delete: if isOwner(userId);
+
+      // Wishlist Subcollection (Saved / Tracked Games)
+      match /wishlist/{gameId} {
+        allow get: if isOwner(userId) && isValidId(gameId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(gameId) &&
+                         incoming().gameId == gameId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['gameId', 'userId', 'title', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'gameId', 'userId', 'title', 'posterUrl', 'bannerUrl',
+                           'currentPrice', 'targetPrice', 'originalPrice',
+                           'notes', 'priority', 'platforms', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidWishlistItem(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(gameId) &&
+                         incoming().gameId == existing().gameId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'posterUrl', 'bannerUrl', 'currentPrice', 'targetPrice',
+                           'originalPrice', 'notes', 'priority', 'platforms', 'updatedAt'
+                         ]) &&
+                         isValidWishlistItem(incoming());
+
+        allow delete: if isOwner(userId) && isValidId(gameId);
+      }
+
+      // User Game Collections Subcollection (Library, Backlog, Playing, Completed)
+      match /collections/{collectionId} {
+        allow get: if isOwner(userId) && isValidId(collectionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(collectionId) &&
+                         incoming().id == collectionId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['id', 'userId', 'gameId', 'title', 'collectionType', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'id', 'userId', 'gameId', 'title', 'posterUrl',
+                           'collectionType', 'rating', 'platform', 'notes',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidUserCollection(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(collectionId) &&
+                         incoming().id == existing().id &&
+                         incoming().userId == existing().userId &&
+                         incoming().gameId == existing().gameId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'posterUrl', 'collectionType', 'rating', 'platform', 'notes', 'updatedAt'
+                         ]) &&
+                         isValidUserCollection(incoming());
+
+        allow delete: if isOwner(userId) && isValidId(collectionId);
+      }
+    }
+  }
+}
