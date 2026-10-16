@@ -4,20 +4,22 @@ name: Build GameRadar APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out project
+      - name: Download project files
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Install Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -26,12 +28,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Generate debug keystore
+      - name: Create debug signing key
         run: |
-          mkdir -p "$HOME/.android"
           keytool -genkeypair \
             -v \
-            -keystore "$HOME/.android/debug.keystore" \
+            -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android \
             -alias androiddebugkey \
             -keypass android \
@@ -40,12 +41,13 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Build APK
+      - name: Build GameRadar
         run: gradle assembleDebug
 
-      - name: Upload APK
+      - name: Save APK for download
         uses: actions/upload-artifact@v4
         with:
           name: GameRadar-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 7
